@@ -128,6 +128,21 @@ struct ngx_ssl_connection_s {
     unsigned                    in_ocsp:1;
     unsigned                    early_preread:1;
     unsigned                    write_blocked:1;
+
+    // ja4 stuff
+    int             version;
+
+    size_t          ciphers_sz;
+    unsigned short *ciphers;
+
+    size_t          extensions_sz;
+    unsigned short *extensions;
+
+    size_t          curves_sz;
+    unsigned short  *curves;
+
+    size_t          point_formats_sz;
+    unsigned char  *point_formats;
 };
 
 

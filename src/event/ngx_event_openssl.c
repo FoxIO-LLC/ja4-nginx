@@ -1796,62 +1796,62 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
 }
 
 // TODO: what is this?
-// void
-// ngx_SSL_client_features(ngx_connection_t *c) {
+void
+ngx_SSL_client_features(ngx_connection_t *c) {
 
-//     unsigned short                *ciphers_out = NULL;
-//     int                           *curves_out = NULL;
-//     int                           *point_formats_out = NULL;
-//     size_t                         i = 0;
-//     size_t                         len = 0;
-//     SSL                           *s = NULL;
+    unsigned short                *ciphers_out = NULL;
+    int                           *curves_out = NULL;
+    int                           *point_formats_out = NULL;
+    size_t                         i = 0;
+    size_t                         len = 0;
+    SSL                           *s = NULL;
 
-//     if (c == NULL) {
-//         return;
-//     }
-//     s = c->ssl->connection;
+    if (c == NULL) {
+        return;
+    }
+    s = c->ssl->connection;
 
-//     /* Cipher suites */
-//     c->ssl->ciphers = NULL;
-//     c->ssl->ciphers_sz = SSL_get0_raw_cipherlist(s, &ciphers_out);
-//     c->ssl->ciphers_sz /= 2;
+    /* Cipher suites */
+    c->ssl->ciphers = NULL;
+    c->ssl->ciphers_sz = SSL_get0_raw_cipherlist(s, &ciphers_out);
+    c->ssl->ciphers_sz /= 2;
 
-//     if (c->ssl->ciphers_sz && ciphers_out) {
-//         len = c->ssl->ciphers_sz * sizeof(unsigned short);
-//         c->ssl->ciphers = ngx_pnalloc(c->pool, len);
-//         ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
-//     }
+    if (c->ssl->ciphers_sz && ciphers_out) {
+        len = c->ssl->ciphers_sz * sizeof(unsigned short);
+        c->ssl->ciphers = ngx_pnalloc(c->pool, len);
+        ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
+    }
 
-//     /* Elliptic curve points */
+    /* Elliptic curve points */
 
-//     c->ssl->curves_sz = SSL_get1_curves(s, NULL);
-//     if (c->ssl->curves_sz) {
-//         len = c->ssl->curves_sz * sizeof(int);
-//         curves_out = OPENSSL_malloc(len);
-//         if (curves_out != NULL) {
-//             memset(curves_out, 0, len);
-//             SSL_get1_curves(s, curves_out);
-//             len = c->ssl->curves_sz * sizeof(unsigned short);
-//             c->ssl->curves = ngx_pnalloc(c->pool, len);
-//             if (c->ssl->curves != NULL) {
-//                 for (i = 0; i < c->ssl->curves_sz; i++) {
-//                      c->ssl->curves[i] = (unsigned short) curves_out[i];
-//                 }
-//             }
-//             OPENSSL_free(curves_out);
-//         }
-//     }
+    c->ssl->curves_sz = SSL_get1_curves(s, NULL);
+    if (c->ssl->curves_sz) {
+        len = c->ssl->curves_sz * sizeof(int);
+        curves_out = OPENSSL_malloc(len);
+        if (curves_out != NULL) {
+            memset(curves_out, 0, len);
+            SSL_get1_curves(s, curves_out);
+            len = c->ssl->curves_sz * sizeof(unsigned short);
+            c->ssl->curves = ngx_pnalloc(c->pool, len);
+            if (c->ssl->curves != NULL) {
+                for (i = 0; i < c->ssl->curves_sz; i++) {
+                     c->ssl->curves[i] = (unsigned short) curves_out[i];
+                }
+            }
+            OPENSSL_free(curves_out);
+        }
+    }
 
-//     /* Elliptic curve point formats */
-//     c->ssl->point_formats_sz = SSL_get0_ec_point_formats(s, &point_formats_out);
-//     if (c->ssl->point_formats_sz && point_formats_out != NULL) {
-//         len = c->ssl->point_formats_sz * sizeof(unsigned char);
-//         c->ssl->point_formats = ngx_pnalloc(c->pool, len);
-//         if (c->ssl->point_formats != NULL) {
-//             ngx_memcpy(c->ssl->point_formats, point_formats_out, len);
-//         }
-//     }
-// }
+    /* Elliptic curve point formats */
+    c->ssl->point_formats_sz = SSL_get0_ec_point_formats(s, &point_formats_out);
+    if (c->ssl->point_formats_sz && point_formats_out != NULL) {
+        len = c->ssl->point_formats_sz * sizeof(unsigned char);
+        c->ssl->point_formats = ngx_pnalloc(c->pool, len);
+        if (c->ssl->point_formats != NULL) {
+            ngx_memcpy(c->ssl->point_formats, point_formats_out, len);
+        }
+    }
+}
 
 
 ngx_int_t
@@ -1876,7 +1876,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
     n = SSL_do_handshake(c->ssl->connection);
 
     // calculate ja4 stuff
-    // ngx_SSL_client_features(c);
+    ngx_SSL_client_features(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 
