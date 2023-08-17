@@ -1,5 +1,202 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 00000000..37bbf416
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,2 @@
++objs
++nginx_local
+\ No newline at end of file
+diff --git a/Makefile b/Makefile
+new file mode 100755
+index 00000000..db0d044f
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,27 @@
++
++default:	build
++
++clean:
++	rm -rf Makefile objs
++
++.PHONY:	default clean
++
++build:
++	$(MAKE) -f objs/Makefile
++
++install:
++	$(MAKE) -f objs/Makefile install
++
++modules:
++	$(MAKE) -f objs/Makefile modules
++
++upgrade:
++	/home/thatcher/projects/ja4_nginx/nginx/nginx_local/sbin/nginx -t
++
++	kill -USR2 `cat /home/thatcher/projects/ja4_nginx/nginx/nginx_local/logs/nginx.pid`
++	sleep 1
++	test -f /home/thatcher/projects/ja4_nginx/nginx/nginx_local/logs/nginx.pid.oldbin
++
++	kill -QUIT `cat /home/thatcher/projects/ja4_nginx/nginx/nginx_local/logs/nginx.pid.oldbin`
++
++.PHONY:	build install modules upgrade
+diff --git a/YaMakefile b/YaMakefile
+new file mode 100755
+index 00000000..605a7b1c
+--- /dev/null
++++ b/YaMakefile
+@@ -0,0 +1,6 @@
++start:
++	sudo ./nginx_local/sbin/nginx -g "daemon off;"
++build:
++	./auto/configure --with-http_ssl_module --prefix=$(pwd)/nginx_local
++create-patch:
++	git diff master darksail-mod > darksail_mod.patch
+diff --git a/darksail_mod.patch b/darksail_mod.patch
+new file mode 100755
+index 00000000..c7e61198
+--- /dev/null
++++ b/darksail_mod.patch
+@@ -0,0 +1,14 @@
++diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
++index 8468101d..493f7c58 100644
++--- a/src/event/ngx_event_openssl.c
+++++ b/src/event/ngx_event_openssl.c
++@@ -136,6 +136,9 @@ int  ngx_ssl_next_certificate_index;
++ int  ngx_ssl_certificate_name_index;
++ int  ngx_ssl_stapling_index;
++ 
+++// here lies my ja4 implementation variable
+++ngx_str_t tls_success_dummy_name = ngx_string("tls_success_dummy");
+++ngx_int_t tls_success_dummy_index;
++ 
++ ngx_int_t
++ ngx_ssl_init(ngx_log_t *log)
+diff --git a/nginx.conf b/nginx.conf
+new file mode 100755
+index 00000000..74da1bc5
+--- /dev/null
++++ b/nginx.conf
+@@ -0,0 +1,117 @@
++
++#user  nobody;
++worker_processes  1;
++
++#error_log  logs/error.log;
++#error_log  logs/error.log  notice;
++#error_log  logs/error.log  info;
++
++#pid        logs/nginx.pid;
++
++
++events {
++    worker_connections  1024;
++}
++
++
++http {
++    include       mime.types;
++    default_type  application/octet-stream;
++
++    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
++    #                  '$status $body_bytes_sent "$http_referer" '
++    #                  '"$http_user_agent" "$http_x_forwarded_for"';
++
++    #access_log  logs/access.log  main;
++
++    sendfile        on;
++    #tcp_nopush     on;
++
++    #keepalive_timeout  0;
++    keepalive_timeout  65;
++
++    #gzip  on;
++
++    server {
++        listen       8080;
++        server_name  localhost;
++
++        #charset koi8-r;
++
++        #access_log  logs/host.access.log  main;
++
++        location / {
++            add_header Content-Type text/plain;
++            return 200 "$remote_addr";
++        }
++
++        #error_page  404              /404.html;
++
++        # redirect server error pages to the static page /50x.html
++        #
++        error_page   500 502 503 504  /50x.html;
++        location = /50x.html {
++            root   html;
++        }
++
++        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
++        #
++        #location ~ \.php$ {
++        #    proxy_pass   http://127.0.0.1;
++        #}
++
++        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
++        #
++        #location ~ \.php$ {
++        #    root           html;
++        #    fastcgi_pass   127.0.0.1:9000;
++        #    fastcgi_index  index.php;
++        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
++        #    include        fastcgi_params;
++        #}
++
++        # deny access to .htaccess files, if Apache's document root
++        # concurs with nginx's one
++        #
++        #location ~ /\.ht {
++        #    deny  all;
++        #}
++    }
++
++
++    # another virtual host using mix of IP-, name-, and port-based configuration
++    #
++    #server {
++    #    listen       8000;
++    #    listen       somename:8080;
++    #    server_name  somename  alias  another.alias;
++
++    #    location / {
++    #        root   html;
++    #        index  index.html index.htm;
++    #    }
++    #}
++
++
++    # HTTPS server
++    #
++    #server {
++    #    listen       443 ssl;
++    #    server_name  localhost;
++
++    #    ssl_certificate      cert.pem;
++    #    ssl_certificate_key  cert.key;
++
++    #    ssl_session_cache    shared:SSL:1m;
++    #    ssl_session_timeout  5m;
++
++    #    ssl_ciphers  HIGH:!aNULL:!MD5;
++    #    ssl_prefer_server_ciphers  on;
++
++    #    location / {
++    #        root   html;
++    #        index  index.html index.htm;
++    #    }
++    #}
++
++}
 diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
-index 8468101d..493f7c58 100644
+index 8468101d..93e078df 100644
 --- a/src/event/ngx_event_openssl.c
 +++ b/src/event/ngx_event_openssl.c
 @@ -136,6 +136,9 @@ int  ngx_ssl_next_certificate_index;
@@ -12,3 +209,121 @@ index 8468101d..493f7c58 100644
  
  ngx_int_t
  ngx_ssl_init(ngx_log_t *log)
+@@ -1792,6 +1795,64 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
+     return NGX_OK;
+ }
+ 
++// TODO: what is this?
++// void
++// ngx_SSL_client_features(ngx_connection_t *c) {
++
++//     unsigned short                *ciphers_out = NULL;
++//     int                           *curves_out = NULL;
++//     int                           *point_formats_out = NULL;
++//     size_t                         i = 0;
++//     size_t                         len = 0;
++//     SSL                           *s = NULL;
++
++//     if (c == NULL) {
++//         return;
++//     }
++//     s = c->ssl->connection;
++
++//     /* Cipher suites */
++//     c->ssl->ciphers = NULL;
++//     c->ssl->ciphers_sz = SSL_get0_raw_cipherlist(s, &ciphers_out);
++//     c->ssl->ciphers_sz /= 2;
++
++//     if (c->ssl->ciphers_sz && ciphers_out) {
++//         len = c->ssl->ciphers_sz * sizeof(unsigned short);
++//         c->ssl->ciphers = ngx_pnalloc(c->pool, len);
++//         ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
++//     }
++
++//     /* Elliptic curve points */
++
++//     c->ssl->curves_sz = SSL_get1_curves(s, NULL);
++//     if (c->ssl->curves_sz) {
++//         len = c->ssl->curves_sz * sizeof(int);
++//         curves_out = OPENSSL_malloc(len);
++//         if (curves_out != NULL) {
++//             memset(curves_out, 0, len);
++//             SSL_get1_curves(s, curves_out);
++//             len = c->ssl->curves_sz * sizeof(unsigned short);
++//             c->ssl->curves = ngx_pnalloc(c->pool, len);
++//             if (c->ssl->curves != NULL) {
++//                 for (i = 0; i < c->ssl->curves_sz; i++) {
++//                      c->ssl->curves[i] = (unsigned short) curves_out[i];
++//                 }
++//             }
++//             OPENSSL_free(curves_out);
++//         }
++//     }
++
++//     /* Elliptic curve point formats */
++//     c->ssl->point_formats_sz = SSL_get0_ec_point_formats(s, &point_formats_out);
++//     if (c->ssl->point_formats_sz && point_formats_out != NULL) {
++//         len = c->ssl->point_formats_sz * sizeof(unsigned char);
++//         c->ssl->point_formats = ngx_pnalloc(c->pool, len);
++//         if (c->ssl->point_formats != NULL) {
++//             ngx_memcpy(c->ssl->point_formats, point_formats_out, len);
++//         }
++//     }
++// }
++
+ 
+ ngx_int_t
+ ngx_ssl_handshake(ngx_connection_t *c)
+@@ -1814,6 +1875,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
+ 
+     n = SSL_do_handshake(c->ssl->connection);
+ 
++    // calculate ja4 stuff
++    // ngx_SSL_client_features(c);
++
+     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
+ 
+     if (n == 1) {
+diff --git a/src/http/ngx_http_variables.c b/src/http/ngx_http_variables.c
+index 4f0bd0e4..d6cd9cef 100644
+--- a/src/http/ngx_http_variables.c
++++ b/src/http/ngx_http_variables.c
+@@ -145,6 +145,24 @@ static ngx_int_t ngx_http_variable_time_iso8601(ngx_http_request_t *r,
+ static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
+     ngx_http_variable_value_t *v, uintptr_t data);
+ 
++// here lies dummy variable setting
++static ngx_int_t ngx_http_variable_dummy(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
++static ngx_int_t
++ngx_http_variable_dummy(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data)
++{
++    static u_char dummy_value[] = "helloworld";
++
++    v->len = sizeof(dummy_value) - 1;
++    v->valid = 1;
++    v->no_cacheable = 0;
++    v->not_found = 0;
++    v->data = dummy_value;
++
++    return NGX_OK;
++}
++
++
++
+ /*
+  * TODO:
+  *     Apache CGI: AUTH_TYPE, PATH_INFO (null), PATH_TRANSLATED
+@@ -162,9 +180,12 @@ static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
+  */
+ 
+ static ngx_http_variable_t  ngx_http_core_variables[] = {
+-
++    // this is how you can set a variable that propagates to .conf
++    { ngx_string("dummy"), NULL, ngx_http_variable_dummy, 0, NGX_HTTP_VAR_CHANGEABLE, 0 },
++    
+     { ngx_string("http_host"), NULL, ngx_http_variable_header,
+       offsetof(ngx_http_request_t, headers_in.host), 0, 0 },
++      
+ 
+     { ngx_string("http_user_agent"), NULL, ngx_http_variable_header,
+       offsetof(ngx_http_request_t, headers_in.user_agent), 0, 0 },
