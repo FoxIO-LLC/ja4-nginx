@@ -1,0 +1,14 @@
+diff --git a/src/event/ngx_event_openssl.c b/src/event/ngx_event_openssl.c
+index 8468101d..493f7c58 100644
+--- a/src/event/ngx_event_openssl.c
++++ b/src/event/ngx_event_openssl.c
+@@ -136,6 +136,9 @@ int  ngx_ssl_next_certificate_index;
+ int  ngx_ssl_certificate_name_index;
+ int  ngx_ssl_stapling_index;
+ 
++// here lies my ja4 implementation variable
++ngx_str_t tls_success_dummy_name = ngx_string("tls_success_dummy");
++ngx_int_t tls_success_dummy_index;
+ 
+ ngx_int_t
+ ngx_ssl_init(ngx_log_t *log)

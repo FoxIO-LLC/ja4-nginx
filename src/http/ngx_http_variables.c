@@ -145,6 +145,24 @@ static ngx_int_t ngx_http_variable_time_iso8601(ngx_http_request_t *r,
 static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
+// here lies dummy variable setting
+static ngx_int_t ngx_http_variable_dummy(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t
+ngx_http_variable_dummy(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data)
+{
+    static u_char dummy_value[] = "helloworld";
+
+    v->len = sizeof(dummy_value) - 1;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = dummy_value;
+
+    return NGX_OK;
+}
+
+
+
 /*
  * TODO:
  *     Apache CGI: AUTH_TYPE, PATH_INFO (null), PATH_TRANSLATED
@@ -162,9 +180,12 @@ static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
  */
 
 static ngx_http_variable_t  ngx_http_core_variables[] = {
-
+    // this is how you can set a variable that propagates to .conf
+    { ngx_string("dummy"), NULL, ngx_http_variable_dummy, 0, NGX_HTTP_VAR_CHANGEABLE, 0 },
+    
     { ngx_string("http_host"), NULL, ngx_http_variable_header,
       offsetof(ngx_http_request_t, headers_in.host), 0, 0 },
+      
 
     { ngx_string("http_user_agent"), NULL, ngx_http_variable_header,
       offsetof(ngx_http_request_t, headers_in.user_agent), 0, 0 },
