@@ -136,9 +136,6 @@ int  ngx_ssl_next_certificate_index;
 int  ngx_ssl_certificate_name_index;
 int  ngx_ssl_stapling_index;
 
-// here lies my ja4 implementation variable
-ngx_str_t tls_success_dummy_name = ngx_string("tls_success_dummy");
-ngx_int_t tls_success_dummy_index;
 
 ngx_int_t
 ngx_ssl_init(ngx_log_t *log)
