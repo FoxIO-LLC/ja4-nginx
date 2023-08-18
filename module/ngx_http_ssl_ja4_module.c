@@ -371,6 +371,23 @@ ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
     if (pool == NULL || ja4 == NULL || out == NULL) {
         return;
     }
+    // this code works!
+
+    // q for QUIC or t for TCP
+
+    // 2 character TLS version
+
+    // SNI = d, no SNI = i
+
+    // 2 character count of ciphers
+
+    // 2 character count of extensions
+
+    // first and last characters of first ALPN extension value
+
+    // sha256 hash of the list of cipher hex codes sorted in hex order, truncated to 12 characters
+
+    // sha256 hash of the list of extension hex codes sorted in hex order, truncated to 12 characters
 
     len += ngx_ssj_ja4_num_digits(ja4->version);            /* Version */
     ++len;                                                  /* ',' separator */

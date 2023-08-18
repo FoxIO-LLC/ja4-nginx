@@ -1792,7 +1792,7 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
     return NGX_OK;
 }
 
-// TODO: what is this?
+// TODO: adds ja4 stuff to the ssl object to be calculated later
 void
 ngx_SSL_client_features(ngx_connection_t *c) {
 
@@ -1849,6 +1849,50 @@ ngx_SSL_client_features(ngx_connection_t *c) {
         }
     }
 }
+// ja4 extension hack
+int
+ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
+
+    int                            got_extensions;
+    int                           *ext_out;
+    size_t                         ext_len;
+    ngx_connection_t              *c;
+
+    c = arg;
+
+    if (c == NULL) {
+        return 1;
+    }
+
+    if (c->ssl == NULL) {
+        return 1;
+    }
+
+    c->ssl->extensions_sz = 0;
+    c->ssl->extensions = NULL;
+    got_extensions = SSL_client_hello_get1_extensions_present(s,
+                                                       &ext_out,
+                                                       &ext_len);
+    if (!got_extensions) {
+        return 1;
+    }
+    if (!ext_out) {
+        return 1;
+    }
+    if (!ext_len) {
+        return 1;
+    }
+
+    c->ssl->extensions = ngx_palloc(c->pool, sizeof(int) * ext_len);
+    if (c->ssl->extensions != NULL) {
+        c->ssl->extensions_sz = ext_len;
+        ngx_memcpy(c->ssl->extensions, ext_out, sizeof(int) * ext_len);
+    }
+
+    OPENSSL_free(ext_out);
+
+    return 1;
+}
 
 
 ngx_int_t
@@ -1869,6 +1913,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
     }
 
     ngx_ssl_clear_error(c->log);
+    
+    // client hello callback function on the session context
+    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);
 
     n = SSL_do_handshake(c->ssl->connection);
 
