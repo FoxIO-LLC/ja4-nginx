@@ -6,13 +6,20 @@
 #include <openssl/sha.h>
 
 typedef struct ngx_ssl_ja4_s {
-    int             version;
+    int             version;           // TLS version
 
-    size_t          ciphers_sz;
-    unsigned short *ciphers;
+    unsigned char   transport;         // 'q' for QUIC, 't' for TCP
 
-    size_t          extensions_sz;
-    unsigned short *extensions;
+    unsigned char   has_sni;           // 'd' if SNI is present, 'i' otherwise
+
+    size_t          ciphers_sz;        // Count of ciphers
+    unsigned short *ciphers;           // List of ciphers
+
+    size_t          extensions_sz;     // Count of extensions
+    unsigned short *extensions;        // List of extensions
+
+    size_t          alpn_sz;           // Size of the first ALPN value (assuming it's a string)
+    char           *alpn_values;       // First ALPN extension value
 
     size_t          curves_sz;
     unsigned short  *curves;
@@ -20,7 +27,13 @@ typedef struct ngx_ssl_ja4_s {
     size_t          point_formats_sz;
     unsigned char  *point_formats;
 
+    char cipher_hash[65];        // 32 bytes * 2 characters/byte + 1 for '\0'
+    char cipher_hash_truncated[25]; // 12 bytes * 2 characters/byte + 1 for '\0'
+
+    char extension_hash[65];     // 32 bytes * 2 characters/byte + 1 for '\0'
+    char extension_hash_truncated[25]; // 12 bytes * 2 characters/byte + 1 for '\0'
 } ngx_ssl_ja4_t;
+
 
 
 int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4);
@@ -306,6 +319,17 @@ static void
 ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
 {
     size_t i;
+
+    /* Transport Protocol (QUIC or TCP) */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, 
+                   "ssl_ja4: Transport Protocol: %c", 
+                   ja4->transport);
+
+    /* SNI presence or absence */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, 
+                   "ssl_ja4: SNI: %c", 
+                   ja4->has_sni);
+
     /* Version */
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
                    pool->log, 0, "ssl_ja4: Version:  %d\n", ja4->version);
@@ -322,6 +346,26 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
                        ja4->ciphers[i]
         );
     }
+
+    // cipher hash
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
+                   pool->log, 0, "ssl_ja4: cipher hash: %s\n",
+                   ja4->cipher_hash);
+
+    // cipher hash truncated
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
+                   pool->log, 0, "ssl_ja4: cipher hash truncated: %s\n",
+                   ja4->cipher_hash_truncated);
+
+    // extension hash
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
+                   pool->log, 0, "ssl_ja4: extension hash: %s\n",
+                   ja4->extension_hash);
+    
+    // extension hash truncated
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
+                   pool->log, 0, "ssl_ja4: extension hash truncated: %s\n",
+                   ja4->extension_hash_truncated);
 
     /* Extensions */
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
@@ -359,6 +403,16 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
                        ja4->point_formats[i]
         );
     }
+
+    /* ALPN Values */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, 
+                   "ssl_ja4: ALPN Values Length: %d", 
+                   ja4->alpn_sz);
+    for (i = 0; i < ja4->alpn_sz; ++i) {
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, 
+                       "ssl_ja4: |    ALPN Value: %c", 
+                       ja4->alpn_values[i]);
+    }
 }
 #endif
 
@@ -392,15 +446,15 @@ void
 ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out) {
     // Calculate memory requirements for output
     size_t len = 1 // for q/t
-               + 2 // TLS version
-               + 1 // d/i for SNI
-               + 2 // count of ciphers
-               + 2 // count of extensions
-               + 2 // first and last characters of ALPN
-               + 1 // underscore
-               + 12 // truncated sha256 of ciphers
-               + 1 // underscore
-               + 12; // truncated sha256 of extensions
+           + 2 // TLS version
+           + 1 // d/i for SNI
+           + 2 // count of ciphers
+           + 2 // count of extensions
+           + 2 // first and last characters of ALPN
+           + 1 // underscore
+           + 24 // truncated sha256 of ciphers in hex
+           + 1 // underscore
+           + 24; // truncated sha256 of extensions in hex
 
     out->data = ngx_pnalloc(pool, len);
     out->len = len;
@@ -420,11 +474,11 @@ ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out) {
     // out->data[cur++] = (ja4->has_sni) ? 'd' : 'i'; // Assuming has_sni is a boolean.
     // TODO: placeholder
     out->data[cur++] = 'i';
-
+    // TODO: size or count?
     // 2 character count of ciphers
     ngx_snprintf(out->data + cur, 3, "%02zu", ja4->ciphers_sz);
     cur += 2;
-
+    // TODO: size or count?
     // 2 character count of extensions
     ngx_snprintf(out->data + cur, 3, "%02zu", ja4->extensions_sz);
     cur += 2;
@@ -446,42 +500,18 @@ ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out) {
 
     // add underscore
     out->data[cur++] = '_';
-    // TODO: placeholder
-    // Add 12 zeros for the placeholder of cipher's SHA256
-    // for (int i = 0; i < 12; i++) {
-    //     out->data[cur++] = '0';
-    // }
-    sort_hex(ja4->ciphers, ja4->ciphers_sz);
-    unsigned char cipher_hash[32];
-    compute_sha256(ja4->ciphers, ja4->ciphers_sz, cipher_hash);
+
+    // add cipher hash, 24 character with null terminator
+    ngx_snprintf(out->data + cur, 25, "%s", ja4->cipher_hash_truncated);
+    cur += 24;  // Adjust the current pointer by 24 chars for the cipher hash
 
     // add underscore
     out->data[cur++] = '_';
 
-    for (int i = 0; i < 6; i++) {
-        ngx_snprintf(out->data + cur, 3, "%02x", cipher_hash[i]);
-        cur += 2;
-    }
-
-
-    // add underscore
-    out->data[cur++] = '_';
-    // TODO: placeholder
-    // Add 12 zeros for the placeholder of extension's SHA256
-    for (int i = 0; i < 12; i++) {
-        out->data[cur++] = '0';
-    }
-
-    // for (int i = 0; i < 6; i++) {
-    //     ngx_snprintf(out->data + cur, 3, "%02x", cipher_hash[i]);
-    //     cur += 2;
-    // }
+    // add extension hash, 24 character with null terminator
+    ngx_snprintf(out->data + cur, 25, "%s", ja4->extension_hash_truncated);
+    cur += 24;  // Adjust the current pointer by 24 chars for the extension 
     
-    // for (int i = 0; i < 6; i++) {
-    //     ngx_snprintf(out->data + cur, 3, "%02x", extension_hash[i]);
-    //     cur += 2;
-    // }
-
     out->len = cur;
 
 #if (NGX_DEBUG)
@@ -491,11 +521,6 @@ ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out) {
 }
 
 
-
-/*
-   /usr/bin/openssl s_client -connect 127.0.0.1:12345 \
-           -cipher "AES128-SHA" -curves secp521r1
-*/
 int
 ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4) {
 
@@ -517,6 +542,33 @@ ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4) {
         return NGX_DECLINED;
     }
 
+    // TODO: Need to detect QUIC
+    // 1. Determine the transport protocol:
+    // (This is a placeholder and might need to be replaced depending on how you determine the protocol in your environment.)
+    ja4->transport = 't'; // Assuming default is TCP. You'll need to add a check for QUIC.
+
+    // TODO: verify this
+    // 2. Determine if SNI is present or not:
+    const char *sni_name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+    ja4->has_sni = (sni_name != NULL) ? 'd' : 'i';
+
+    // TODO: verify this
+    // 3. Fetch the ALPN value:
+    const unsigned char *alpn = NULL;
+    unsigned int alpnlen = 0;
+    SSL_get0_alpn_selected(ssl, &alpn, &alpnlen);
+    if (alpn && alpnlen > 0) {
+        ja4->alpn_sz = alpnlen;
+        ja4->alpn_values = ngx_pnalloc(pool, alpnlen);
+        if (!ja4->alpn_values) {
+            return NGX_DECLINED;
+        }
+        ngx_memcpy(ja4->alpn_values, alpn, alpnlen);
+    } else {
+        ja4->alpn_sz = 0;
+        ja4->alpn_values = NULL;
+    }
+
     /* SSLVersion*/
     ja4->version = SSL_version(ssl);
 
@@ -525,19 +577,54 @@ ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4) {
     ja4->ciphers_sz = 0;
 
     if (c->ssl->ciphers && c->ssl->ciphers_sz) {
+        // total length required to store all ciphers
         len = c->ssl->ciphers_sz * sizeof(unsigned short);
+
+        // allocate memory
         ja4->ciphers = ngx_pnalloc(pool, len);
+
+        // check if memory allocation was successful
         if (ja4->ciphers == NULL) {
             return NGX_DECLINED;
         }
         /* Filter out GREASE extensions */
         for (i = 0; i < c->ssl->ciphers_sz; ++i) {
+            // convert sipher from network byte order to host byte order
             us = ntohs(c->ssl->ciphers[i]);
+            // if not a grease value, add it to the list of ciphers
             if (! ngx_ssl_ja4_is_ext_greased(us)) {
                 ja4->ciphers[ja4->ciphers_sz++] = us;
             }
         }
     }
+
+    // check if we got ciphers
+    if (ja4->ciphers && ja4->ciphers_sz) {
+        // SHA256_DIGEST_LENGTH should be 32 bytes (256 bits)
+        unsigned char hash_result[SHA256_DIGEST_LENGTH];
+        // declare a context structure needed by openssl to compute hash
+        SHA256_CTX sha256;
+        // initialize the context
+        SHA256_Init(&sha256);
+
+        // iterate each cipher and add data to the context
+        for (i = 0; i < ja4->ciphers_sz; i++) {
+            SHA256_Update(&sha256, &(ja4->ciphers[i]), sizeof(unsigned short));
+        }
+        // compute hash, stored in hash_result
+        SHA256_Final(hash_result, &sha256);
+
+        // Convert the hash result to hex
+        for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            sprintf(&ja4->cipher_hash[i * 2], "%02x", hash_result[i]);
+        }
+        ja4->cipher_hash[2 * SHA256_DIGEST_LENGTH] = '\0';  // Null-terminate the hex string
+
+        // Copy the first 12 bytes (24 characters) for the truncated hash
+        ngx_memcpy(ja4->cipher_hash_truncated, ja4->cipher_hash, 24);
+        ja4->cipher_hash_truncated[24] = '\0';  // Null-terminate the truncated hex string
+    }
+
 
     /* Extensions */
     ja4->extensions = NULL;
@@ -553,11 +640,36 @@ ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4) {
                 ja4->extensions[ja4->extensions_sz++] = c->ssl->extensions[i];
             }
         }
-// #ifdef ja4_SORT_EXT
-//         ngx_sort_ext(ja4->extensions, ja4->extensions_sz);
-// #endif
     }
 
+    if (ja4->extensions && ja4->extensions_sz) {
+        unsigned char hash_result[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256;
+        SHA256_Init(&sha256);
+
+        for (i = 0; i < ja4->extensions_sz; i++) {
+            SHA256_Update(&sha256, &(ja4->extensions[i]), sizeof(unsigned short));
+        }
+
+        SHA256_Final(hash_result, &sha256);
+
+        // Convert the full hash to hexadecimal format
+        char hex_hash[2 * SHA256_DIGEST_LENGTH + 1]; // +1 for null-terminator
+        for (i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            sprintf(hex_hash + 2 * i, "%02x", hash_result[i]);
+        }
+        ngx_memcpy(ja4->extension_hash, hex_hash, 2 * SHA256_DIGEST_LENGTH);
+
+        // Convert the truncated hash to hexadecimal format
+        char hex_hash_truncated[2 * 12 + 1]; // 24 characters plus null-terminator
+        for (i = 0; i < 12; i++) {
+            sprintf(hex_hash_truncated + 2 * i, "%02x", hash_result[i]);
+        }
+        ngx_memcpy(ja4->extension_hash_truncated, hex_hash_truncated, 24);
+        ja4->extension_hash_truncated[24] = '\0';
+    }
+
+    // TODO: rm this
     /* Elliptic curve points */
     ja4->curves = c->ssl->curves;
     ja4->curves_sz = 0;
