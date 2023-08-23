@@ -248,7 +248,10 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     }
 
     /* ALPN Values */
-    // TODO
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
+                   pool->log, 0, "ssl_ja4: ALPN Value: %d\n",
+                   ja4->alpn_values);
+    
 }
 #endif
 
@@ -283,12 +286,10 @@ void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
     // SNI = d, no SNI = i
     // out->data[cur++] = (ja4->has_sni) ? 'd' : 'i'; // Assuming has_sni is a boolean.
     // TODO: placeholder
-    out->data[cur++] = 'i';
-    // TODO: size or count?
+    out->data[cur++] = ja4->has_sni;
     // 2 character count of ciphers
     ngx_snprintf(out->data + cur, 3, "%02zu", ja4->ciphers_sz);
     cur += 2;
-    // TODO: size or count?
     // 2 character count of extensions
     ngx_snprintf(out->data + cur, 3, "%02zu", ja4->extensions_sz);
     cur += 2;
@@ -364,7 +365,6 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     const char *sni_name = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
     ja4->has_sni = (sni_name != NULL) ? 'd' : 'i';
 
-    // TODO: verify this
     // 3. Fetch the ALPN value:
     // the ALPN value could be many things according to spec: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
     // for example "http/1.1" or "sip/2"
