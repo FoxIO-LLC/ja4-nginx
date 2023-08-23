@@ -138,11 +138,7 @@ struct ngx_ssl_connection_s {
     size_t          extensions_sz;
     unsigned short *extensions;
 
-    size_t          curves_sz;
-    unsigned short  *curves;
 
-    size_t          point_formats_sz;
-    unsigned char  *point_formats;
 };
 
 

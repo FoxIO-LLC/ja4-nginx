@@ -1797,9 +1797,6 @@ void
 ngx_SSL_client_features(ngx_connection_t *c) {
 
     unsigned short                *ciphers_out = NULL;
-    int                           *curves_out = NULL;
-    int                           *point_formats_out = NULL;
-    size_t                         i = 0;
     size_t                         len = 0;
     SSL                           *s = NULL;
 
@@ -1818,38 +1815,8 @@ ngx_SSL_client_features(ngx_connection_t *c) {
         c->ssl->ciphers = ngx_pnalloc(c->pool, len);
         ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
     }
-
-    /* Elliptic curve points */
-
-    c->ssl->curves_sz = SSL_get1_curves(s, NULL);
-    if (c->ssl->curves_sz) {
-        len = c->ssl->curves_sz * sizeof(int);
-        curves_out = OPENSSL_malloc(len);
-        if (curves_out != NULL) {
-            memset(curves_out, 0, len);
-            SSL_get1_curves(s, curves_out);
-            len = c->ssl->curves_sz * sizeof(unsigned short);
-            c->ssl->curves = ngx_pnalloc(c->pool, len);
-            if (c->ssl->curves != NULL) {
-                for (i = 0; i < c->ssl->curves_sz; i++) {
-                     c->ssl->curves[i] = (unsigned short) curves_out[i];
-                }
-            }
-            OPENSSL_free(curves_out);
-        }
-    }
-
-    /* Elliptic curve point formats */
-    c->ssl->point_formats_sz = SSL_get0_ec_point_formats(s, &point_formats_out);
-    if (c->ssl->point_formats_sz && point_formats_out != NULL) {
-        len = c->ssl->point_formats_sz * sizeof(unsigned char);
-        c->ssl->point_formats = ngx_pnalloc(c->pool, len);
-        if (c->ssl->point_formats != NULL) {
-            ngx_memcpy(c->ssl->point_formats, point_formats_out, len);
-        }
-    }
 }
-// ja4 extension hack
+// TODO: this is the extensions part need to check this ja4 extension hack
 int
 ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
 
