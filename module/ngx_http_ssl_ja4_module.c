@@ -19,8 +19,13 @@ typedef struct ngx_ssl_ja4_s
     size_t extensions_sz;       // Count of extensions
     unsigned short *extensions; // List of extensions
 
-    size_t alpn_sz;    // Size of the first ALPN value (assuming it's a string)
-    char *alpn_values; // First ALPN extension value
+    // For the entire ALPN extension value
+    size_t alpn_sz;
+    char *alpn_values;
+
+    // For the first and last ALPN extension values
+    char alpn_first_value;
+    char alpn_last_value;
 
     char cipher_hash[65];           // 32 bytes * 2 characters/byte + 1 for '\0'
     char cipher_hash_truncated[13]; // 12 bytes * 2 characters/byte + 1 for '\0'
@@ -142,7 +147,7 @@ ngx_http_ssl_ja4_init(ngx_conf_t *cf)
 
 /**
  * Grease values to be ignored.
-*/
+ */
 static const unsigned short GREASE[] = {
     0x0a0a,
     0x1a1a,
@@ -243,15 +248,7 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     }
 
     /* ALPN Values */
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
-                   "ssl_ja4: ALPN Values Length: %d",
-                   ja4->alpn_sz);
-    for (i = 0; i < ja4->alpn_sz; ++i)
-    {
-        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
-                       "ssl_ja4: |    ALPN Value: %c",
-                       ja4->alpn_values[i]);
-    }
+    // TODO
 }
 #endif
 
@@ -296,20 +293,8 @@ void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
     ngx_snprintf(out->data + cur, 3, "%02zu", ja4->extensions_sz);
     cur += 2;
 
-    // first and last characters of first ALPN extension value
-    // Assuming ALPN values are stored in a char array.
-    // if (ja4->alpn_sz > 0) {
-    //     out->data[cur++] = ja4->alpn_values[0]; // first char
-    //     out->data[cur++] = ja4->alpn_values[ja4->alpn_sz - 1]; // last char
-    // }
-    // Placeholder for ALPN in ngx_ssl_ja4_fp function
-    // TODO: placeholder
-    // We assume the ALPN values might be characters. So, for the sake of placeholder, let's use dummy characters.
-    char first_alpn_char = 'a'; // dummy value for the first character
-    char last_alpn_char = 'z';  // dummy value for the last character
-
-    out->data[cur++] = first_alpn_char;
-    out->data[cur++] = last_alpn_char;
+    out->data[cur++] = ja4->alpn_first_value;
+    out->data[cur++] = ja4->alpn_last_value;
 
     // add underscore
     out->data[cur++] = '_';
@@ -381,6 +366,9 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
 
     // TODO: verify this
     // 3. Fetch the ALPN value:
+    // the ALPN value could be many things according to spec: https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
+    // for example "http/1.1" or "sip/2"
+    // the fingerprint needs the first and last characters
     const unsigned char *alpn = NULL;
     unsigned int alpnlen = 0;
     SSL_get0_alpn_selected(ssl, &alpn, &alpnlen);
@@ -393,11 +381,21 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
             return NGX_DECLINED;
         }
         ngx_memcpy(ja4->alpn_values, alpn, alpnlen);
+
+        // first value
+        ja4->alpn_first_value = ja4->alpn_values[0];
+        // last value
+        ja4->alpn_last_value = ja4->alpn_values[ja4->alpn_sz - 1];
     }
     else
     {
         ja4->alpn_sz = 0;
         ja4->alpn_values = NULL;
+
+        // first value, just a zero
+        ja4->alpn_first_value = '0';
+        // last value, just a zero
+        ja4->alpn_last_value = '0';
     }
 
     /* SSLVersion*/
