@@ -7,7 +7,7 @@
 
 typedef struct ngx_ssl_ja4_s
 {
-    int version; // TLS version
+    const char *version; // TLS version
 
     unsigned char transport; // 'q' for QUIC, 't' for TCP
 
@@ -142,7 +142,6 @@ ngx_http_ssl_ja4_init(ngx_conf_t *cf)
 
 /**
  * Grease values to be ignored.
- 
 */
 static const unsigned short GREASE[] = {
     0x0a0a,
@@ -281,7 +280,7 @@ void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
     out->data[cur++] = 't';
 
     // 2 character TLS version
-    ngx_snprintf(out->data + cur, 3, "%02d", ja4->version); // Assuming version is a number from 0 to 99.
+    memcpy(out->data + cur, ja4->version, 2);
     cur += 2;
 
     // SNI = d, no SNI = i
@@ -332,6 +331,18 @@ void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
     ngx_ssl_ja4_detail_print(pool, ja4);
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4: fp: [%V]\n", out);
 #endif
+}
+
+static int compare_ciphers(const void *a, const void *b)
+{
+    unsigned short cipher_a = *(unsigned short *)a;
+    unsigned short cipher_b = *(unsigned short *)b;
+
+    if (cipher_a < cipher_b)
+        return -1;
+    if (cipher_a > cipher_b)
+        return 1;
+    return 0;
 }
 
 int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
@@ -390,12 +401,38 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     }
 
     /* SSLVersion*/
-    ja4->version = SSL_version(ssl);
+    int version = SSL_version(c->ssl->connection);
+
+    switch (version)
+    {
+    case SSL3_VERSION:
+        ja4->version = "03";
+        break;
+    case TLS1_VERSION:
+        ja4->version = "10";
+        break;
+    case TLS1_1_VERSION:
+        ja4->version = "11";
+        break;
+    case TLS1_2_VERSION:
+        ja4->version = "12";
+        break;
+    case TLS1_3_VERSION:
+        ja4->version = "13";
+        break;
+    default:
+        ja4->version = "XX"; // Represents an unknown version
+        break;
+    }
 
     /* Cipher suites */
     ja4->ciphers = NULL;
     ja4->ciphers_sz = 0;
-
+    /*
+    Allocate memory for and populate a list of ciphers from 'c->ssl->ciphers',
+    excluding any GREASE values. The resulting ciphers are stored in host byte
+    order in 'ja4->ciphers'. If memory allocation fails, the function returns NGX_DECLINED.
+    */
     if (c->ssl->ciphers && c->ssl->ciphers_sz)
     {
         // total length required to store all ciphers
@@ -420,6 +457,8 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
                 ja4->ciphers[ja4->ciphers_sz++] = us;
             }
         }
+        /* Now, let's sort the ja4->ciphers array */
+        qsort(ja4->ciphers, ja4->ciphers_sz, sizeof(unsigned short), compare_ciphers);
     }
 
     // check if we got ciphers
@@ -457,7 +496,7 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     ja4->extensions_sz = 0;
     if (c->ssl->extensions_sz && c->ssl->extensions)
     {
-        len = c->ssl->extensions_sz * sizeof(int);
+        len = c->ssl->extensions_sz * sizeof(unsigned short);
         ja4->extensions = ngx_pnalloc(pool, len);
         if (ja4->extensions == NULL)
         {
@@ -470,6 +509,8 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
                 ja4->extensions[ja4->extensions_sz++] = c->ssl->extensions[i];
             }
         }
+        /* Now, let's sort the ja4->extensions array */
+        qsort(ja4->extensions, ja4->extensions_sz, sizeof(unsigned short), compare_ciphers);
     }
 
     if (ja4->extensions && ja4->extensions_sz)
