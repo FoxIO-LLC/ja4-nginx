@@ -1840,6 +1840,12 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
     got_extensions = SSL_client_hello_get1_extensions_present(s,
                                                        &ext_out,
                                                        &ext_len);
+
+    // log extensions
+    for (size_t i = 0; i < ext_len; i++) {
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "ext_out[%z] = %d", i, ext_out[i]);
+    }
+
     if (!got_extensions) {
         return 1;
     }
@@ -1850,10 +1856,17 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
         return 1;
     }
 
-    c->ssl->extensions = ngx_palloc(c->pool, sizeof(int) * ext_len);
+    c->ssl->extensions = ngx_palloc(c->pool, sizeof(unsigned short) * ext_len);
     if (c->ssl->extensions != NULL) {
+        for (size_t i = 0; i < ext_len; i++) {
+            c->ssl->extensions[i] = (unsigned short) ext_out[i];
+        }
         c->ssl->extensions_sz = ext_len;
-        ngx_memcpy(c->ssl->extensions, ext_out, sizeof(int) * ext_len);
+    }
+
+    // now log c->ssl->extensions
+    for (size_t i = 0; i < ext_len; i++) {
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "c->ssl->extensions[%z] = %d", i, c->ssl->extensions[i]);
     }
 
     OPENSSL_free(ext_out);
