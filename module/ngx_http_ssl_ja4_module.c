@@ -21,12 +21,6 @@ typedef struct ngx_ssl_ja4_s {
     size_t          alpn_sz;           // Size of the first ALPN value (assuming it's a string)
     char           *alpn_values;       // First ALPN extension value
 
-    size_t          curves_sz;
-    unsigned short  *curves;
-
-    size_t          point_formats_sz;
-    unsigned char  *point_formats;
-
     char cipher_hash[65];        // 32 bytes * 2 characters/byte + 1 for '\0'
     char cipher_hash_truncated[25]; // 12 bytes * 2 characters/byte + 1 for '\0'
 
@@ -71,55 +65,6 @@ ngx_module_t ngx_http_ssl_ja4_module = {
 };
 
 static ngx_int_t
-ngx_http_ssl_ja4_hash(ngx_http_request_t *r,
-        ngx_http_variable_value_t *v, uintptr_t data)
-{
-    ngx_ssl_ja4_t                  ja4;
-    ngx_str_t                      fp = ngx_null_string;
-
-    ngx_md5_t                      ctx;
-    u_char                         hash[17] = {0};
-
-    if (r->connection == NULL) {
-        return NGX_OK;
-    }
-
-    v->data = ngx_pcalloc(r->pool, 32);
-
-    if (v->data == NULL) {
-        return NGX_ERROR;
-    }
-
-    if (ngx_ssl_ja4(r->connection, r->pool, &ja4) == NGX_DECLINED) {
-        return NGX_ERROR;
-    }
-
-    ngx_ssl_ja4_fp(r->pool, &ja4, &fp);
-
-    ngx_md5_init(&ctx);
-    ngx_md5_update(&ctx, fp.data, fp.len);
-    ngx_md5_final(hash, &ctx);
-    ngx_hex_dump(v->data, hash, 16);
-
-    v->len = 32;
-    v->valid = 1;
-    v->no_cacheable = 1;
-    v->not_found = 0;
-
-#if (NGX_DEBUG)
-    {
-        u_char                         hash_hex[33] = {0};
-        ngx_memcpy(hash_hex, v->data, 32);
-
-        ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
-                       r->connection->pool->log, 0, "ssl_ja4: http: hash: [%s]\n", hash_hex);
-    }
-#endif
-
-    return NGX_OK;
-}
-
-static ngx_int_t
 ngx_http_ssl_ja4(ngx_http_request_t *r,
         ngx_http_variable_value_t *v, uintptr_t data)
 {
@@ -147,11 +92,6 @@ ngx_http_ssl_ja4(ngx_http_request_t *r,
 
 static ngx_http_variable_t  ngx_http_ssl_ja4_variables_list[] = {
 
-    {   ngx_string("http_ssl_ja4_hash"),
-        NULL,
-        ngx_http_ssl_ja4_hash,
-        0, 0, 0
-    },
     {   ngx_string("http_ssl_ja4"),
         NULL,
         ngx_http_ssl_ja4,
@@ -284,35 +224,6 @@ ngx_ssl_ja4_nid_to_cid(int nid)
     return nid;
 }
 
-// static size_t
-// ngx_ssj_ja4_num_digits(int n)
-// {
-//     int c = 0;
-//     if (n < 9) {
-//         return 1;
-//     }
-//     for (; n; n /= 10) {
-//         ++c;
-//     }
-//     return c;
-// }
-
-// static void
-// ngx_sort_ext(unsigned short *ext, int size)
-// {
-//     for (int i = 0; i < size - 1; i++)
-//     {
-//         for (int j = 0; j < size - i - 1; j++)
-//         {
-//             if (ext[j] > ext[j + 1])
-//             {
-//                 int tmp = ext[j];
-//                 ext[j] = ext[j + 1];
-//                 ext[j + 1] = tmp;
-//             }
-//         }
-//     }
-// }
 
 #if (NGX_DEBUG)
 static void
@@ -380,30 +291,6 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
         );
     }
 
-    /* Eliptic Curves */
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
-                   pool->log, 0, "ssl_ja4: curves: length: %d\n",
-                   ja4->curves_sz);
-
-    for (i = 0; i < ja4->curves_sz; ++i) {
-        ngx_log_debug2(NGX_LOG_DEBUG_EVENT,
-                       pool->log, 0, "ssl_ja4: |    curves: 0x%04uxD -> %d",
-                       ja4->curves[i],
-                       ja4->curves[i]
-        );
-    }
-
-    /* EC Format Points */
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
-                   pool->log, 0, "ssl_ja4: formats: length: %d\n",
-                   ja4->point_formats_sz);
-    for (i = 0; i < ja4->point_formats_sz; ++i) {
-        ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
-                       pool->log, 0, "ssl_ja4: |    format: %d",
-                       ja4->point_formats[i]
-        );
-    }
-
     /* ALPN Values */
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, 
                    "ssl_ja4: ALPN Values Length: %d", 
@@ -415,31 +302,6 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     }
 }
 #endif
-
-void sort_hex(unsigned short *ciphers, size_t sz) {
-    // Simple insertion sort; for small cipher sizes, it's efficient.
-    for (size_t i = 1; i < sz; i++) {
-        unsigned short key = ciphers[i];
-        int j = i - 1;
-
-        while (j >= 0 && ciphers[j] > key) {
-            ciphers[j + 1] = ciphers[j];
-            j = j - 1;
-        }
-        ciphers[j + 1] = key;
-    }
-}
-
-
-
-void compute_sha256(unsigned short *data, size_t data_sz, unsigned char *output) {
-    unsigned char buffer[data_sz * sizeof(unsigned short)];  // Assumes each cipher is represented with 2 bytes
-    for (size_t i = 0; i < data_sz; i++) {
-        buffer[2 * i] = (data[i] >> 8) & 0xFF;
-        buffer[2 * i + 1] = data[i] & 0xFF;
-    }
-    SHA256(buffer, data_sz * sizeof(unsigned short), output);
-}
 
 
 void
@@ -668,28 +530,6 @@ ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4) {
         ngx_memcpy(ja4->extension_hash_truncated, hex_hash_truncated, 24);
         ja4->extension_hash_truncated[24] = '\0';
     }
-
-    // TODO: rm this
-    /* Elliptic curve points */
-    ja4->curves = c->ssl->curves;
-    ja4->curves_sz = 0;
-    if (c->ssl->curves && c->ssl->curves_sz) {
-        len = c->ssl->curves_sz * sizeof(int);
-        ja4->curves = ngx_pnalloc(pool, len);
-        if (ja4->curves == NULL) {
-            return NGX_DECLINED;
-        }
-        for (i = 0; i < c->ssl->curves_sz; i++) {
-            us = ntohs(c->ssl->curves[i]);
-            if (! ngx_ssl_ja4_is_ext_greased(us)) {
-                ja4->curves[ja4->curves_sz++] = ngx_ssl_ja4_nid_to_cid(c->ssl->curves[i]);
-            }
-        }
-    }
-
-    /* Elliptic curve point formats */
-    ja4->point_formats_sz = c->ssl->point_formats_sz;
-    ja4->point_formats = c->ssl->point_formats;
 
     return NGX_OK;
 }
