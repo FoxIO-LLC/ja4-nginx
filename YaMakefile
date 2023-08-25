@@ -4,7 +4,7 @@ build:
 	./auto/configure --with-debug --with-compat --add-module=./module --with-http_ssl_module --prefix=$(pwd)/nginx_local
 # don't forget to create the patch first!
 create-patch:
-	git diff master darksail-mod > darksail_mod.patch
+	git diff master darksail-mod src/ > darksail_mod.patch
 # this copies the module and patch to the sister repo ../darksail_web
 copy-utils:
 	cp -r module ../darksail_web/nginx
