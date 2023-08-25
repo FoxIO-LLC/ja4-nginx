@@ -145,8 +145,6 @@ static ngx_int_t ngx_http_variable_time_iso8601(ngx_http_request_t *r,
 static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data);
 
-
-
 /*
  * TODO:
  *     Apache CGI: AUTH_TYPE, PATH_INFO (null), PATH_TRANSLATED
@@ -163,7 +161,8 @@ static ngx_int_t ngx_http_variable_time_local(ngx_http_request_t *r,
  * they are handled using dedicated entries
  */
 
-static ngx_http_variable_t  ngx_http_core_variables[] = {    
+static ngx_http_variable_t  ngx_http_core_variables[] = {
+
     { ngx_string("http_host"), NULL, ngx_http_variable_header,
       offsetof(ngx_http_request_t, headers_in.host), 0, 0 },
 
