@@ -1895,9 +1895,23 @@ ngx_ssl_handshake(ngx_connection_t *c)
     ngx_ssl_clear_error(c->log);
     
     // client hello callback function on the session context
-    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);
+    SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);   
+
+    // init time structs in a perfectly reasonable location
+    struct timeval tv_start, tv_end;
+    // get current time (before shakin')
+    gettimeofday(&tv_start, NULL);
 
     n = SSL_do_handshake(c->ssl->connection);
+
+    // get current time (after shakin')
+    gettimeofday(&tv_end, NULL);
+    // Compute the elapsed time in microseconds
+    long elapsed_time = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L;  // convert seconds to microseconds
+    elapsed_time += (tv_end.tv_usec - tv_start.tv_usec);  // add the microsecond component
+
+    // Log the elapsed time
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 time: %ld", elapsed_time);
 
     // calculate ja4 stuff
     ngx_SSL_client_features(c);
