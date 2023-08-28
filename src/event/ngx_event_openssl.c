@@ -1904,20 +1904,23 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     n = SSL_do_handshake(c->ssl->connection);
 
-    // get current time (after shakin')
-    gettimeofday(&tv_end, NULL);
-    // Compute the elapsed time in microseconds
-    long elapsed_time = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L;  // convert seconds to microseconds
-    elapsed_time += (tv_end.tv_usec - tv_start.tv_usec);  // add the microsecond component
+    if (n == 1) {
+        // get current time (after shakin')
+        gettimeofday(&tv_end, NULL);
+        // Compute the elapsed time in microseconds
+        long elapsed_time = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L;  // convert seconds to microseconds
+        elapsed_time += (tv_end.tv_usec - tv_start.tv_usec);  // add the microsecond component
+        
+        // Log the elapsed time
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 time: %ld", elapsed_time);
 
-    // Log the elapsed time
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 time: %ld", elapsed_time);
+        c->ssl->handshake_roundtrip_microseconds = elapsed_time;
+        c->ssl->ttl = 1;
+        ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake block statement: %d", n);
+    }
 
     // calculate ja4 stuff
     ngx_SSL_client_features(c);
-
-    c->ssl->handshake_roundtrip_microseconds = elapsed_time;
-    c->ssl->ttl = 1;
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 

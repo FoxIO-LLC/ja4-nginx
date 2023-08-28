@@ -16,3 +16,6 @@ gen-certs:
 
 convert-crt-to-pem:
 	openssl x509 -in nginx_local/conf/server.crt -out nginx_local/conf/server.pem -outform PEM
+
+connect-with-openssl-client:
+	openssl s_client -connect localhost:443
