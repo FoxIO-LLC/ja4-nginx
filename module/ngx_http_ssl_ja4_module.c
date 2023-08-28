@@ -4,6 +4,7 @@
 #include <ngx_log.h>
 #include <ngx_md5.h>
 #include <openssl/sha.h>
+#include <stdint.h> // for uint8_t, uint16_t, etc.
 
 typedef struct ngx_ssl_ja4_s
 {
@@ -34,12 +35,24 @@ typedef struct ngx_ssl_ja4_s
     char extension_hash_truncated[13]; // 6 bytes * 2 characters/byte + 1 for '\0'
 } ngx_ssl_ja4_t;
 
+typedef struct ngx_ssl_ja4_l_s
+{
+    uint16_t distance_miles;                   // a whole number - max is in the thousands
+    uint16_t handshake_roundtrip_microseconds; // a whole number - max is probably thousands
+    uint8_t ttl;                               // time to live - a whole number - max is 255
+    uint8_t hop_count;                         // a whole number - max is less than 255
+} ngx_ssl_ja4_l_t;
+
 int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4);
+int ngx_ssl_ja4_l(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l);
 void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out);
+void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out);
 static ngx_int_t ngx_http_ssl_ja4_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_ssl_ja4(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_ssl_ja4_l(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 
 /* http_json_log config preparation */
+// adds a function that executes after configuraiton finishes..? not sure
 static ngx_http_module_t ngx_http_ssl_ja4_module_ctx = {
     NULL,                  /* preconfiguration */
     ngx_http_ssl_ja4_init, /* postconfiguration */
@@ -52,6 +65,7 @@ static ngx_http_module_t ngx_http_ssl_ja4_module_ctx = {
 };
 
 /* http_json_log delivery */
+// creates a module w/ a context/configuration? maybe?
 ngx_module_t ngx_http_ssl_ja4_module = {
     NGX_MODULE_V1,
     &ngx_http_ssl_ja4_module_ctx, /* module context */
@@ -66,6 +80,7 @@ ngx_module_t ngx_http_ssl_ja4_module = {
     NULL,                         /* exit master */
     NGX_MODULE_V1_PADDING};
 
+// I think this function sets the http variable value
 static ngx_int_t
 ngx_http_ssl_ja4(ngx_http_request_t *r,
                  ngx_http_variable_value_t *v, uintptr_t data)
@@ -93,6 +108,35 @@ ngx_http_ssl_ja4(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
+// I think this function sets the http variable value
+static ngx_int_t
+ngx_http_ssl_ja4_l(ngx_http_request_t *r,
+                   ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_ssl_ja4_l_t ja4_l;
+    ngx_str_t fp = ngx_null_string;
+
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja4_l(r->connection, r->pool, &ja4_l) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    ngx_ssl_ja4_l_fp(r->pool, &ja4_l, &fp);
+
+    v->data = fp.data;
+    v->len = fp.len;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
 /**
  * This is a list of Nginx variables that will be registered with Nginx.
  * The `ngx_http_add_variable` function will be used to register each
@@ -104,7 +148,14 @@ static ngx_http_variable_t ngx_http_ssl_ja4_variables_list[] = {
      NULL,
      ngx_http_ssl_ja4,
      0, 0, 0},
-
+    {ngx_string("http_ssl_ja4_l"),
+     NULL,
+     ngx_http_ssl_ja4_l,
+     0, 0, 0},
+    {ngx_string("http_ssl_ja4_h"),
+     NULL,
+     ngx_http_ssl_ja4,
+     0, 0, 0},
 };
 
 /**
@@ -183,6 +234,31 @@ ngx_ssl_ja4_is_ext_greased(int id)
 
 #if (NGX_DEBUG)
 static void
+ngx_ssl_ja4_l_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4l)
+{
+
+    /* Distance in miles */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
+                   "ssl_ja4_l: Distance in miles: %d",
+                   ja4l->distance_miles);
+
+    /* Time in microseconds */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
+                   "ssl_ja4_l: Time in microseconds: %d",
+                   ja4l->handshake_roundtrip_microseconds);
+
+    /* TTL */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
+                   "ssl_ja4_l: TTL: %d",
+                   ja4l->ttl);
+
+    /* Hop Count */
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0,
+                   "ssl_ja4_l: Hop Count: %d",
+                   ja4l->hop_count);
+}
+
+static void
 ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
 {
     size_t i;
@@ -251,9 +327,99 @@ ngx_ssl_ja4_detail_print(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT,
                    pool->log, 0, "ssl_ja4: ALPN Value: %d\n",
                    ja4->alpn_values);
-    
 }
 #endif
+
+void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out)
+{
+    // Calculate the maximum lengths of the variables
+    const size_t max_time_len = 5;      // uint16_t max is 65535, which is 5 characters
+    const size_t max_ttl_len = 3;       // uint8_t max is 255, which is 3 characters
+    const size_t max_hop_count_len = 3; // uint8_t max is 255, which is 3 characters
+
+    // init stuff
+    double propagation_delay_factor; // Declare the variable to store the propagation delay factor
+    uint8_t initial_ttl;
+
+    // Include space for 2 underscores and the null-terminator
+    size_t total_len = max_time_len + max_ttl_len + max_hop_count_len + 2 + 1;
+
+    // Allocate memory
+    out->data = ngx_palloc(pool, total_len);
+    if (out->data == NULL)
+    {
+        // Handle memory allocation failure
+        return;
+    }
+
+    // All routes on the Internet have less than 64 hops. 
+    // Therefore if the TTL value is within 65-128, the estimated initial TTL is 128.
+    // If the TTL value is 0-64, the estimated initial TTL is 64.
+    // And if the TTL is >128 then the estimated initial TTL is 255.
+    if (ja4_l->ttl > 128)
+    {
+        initial_ttl = 255;
+    }
+    else if (ja4_l->ttl > 64)
+    {
+        initial_ttl = 128;
+    }
+    else
+    {
+        initial_ttl = 64;
+    }
+
+    ja4_l->hop_count = initial_ttl - ja4_l->ttl;
+
+    if (ja4_l->hop_count <= 21)
+    {
+        propagation_delay_factor = 1.5;
+    }
+    else if (ja4_l->hop_count == 22)
+    {
+        propagation_delay_factor = 1.6;
+    }
+    else if (ja4_l->hop_count == 23)
+    {
+        propagation_delay_factor = 1.7;
+    }
+    else if (ja4_l->hop_count == 24)
+    {
+        propagation_delay_factor = 1.8;
+    }
+    else if (ja4_l->hop_count == 25)
+    {
+        propagation_delay_factor = 1.9;
+    }
+    else if (ja4_l->hop_count >= 26)
+    {
+        propagation_delay_factor = 2.0;
+    }
+
+    
+    // This is effectively
+    // time message takes to get from client to server * miles light travels per microsecond adjusted with propagation delay factor
+    ja4_l->distance_miles = (ja4_l->handshake_roundtrip_microseconds / 2) * 0.13 / propagation_delay_factor;
+
+    // Create the concatenated string
+    int written = snprintf((char *)out->data, total_len, "%u_%u_%u",
+                           ja4_l->handshake_roundtrip_microseconds / 2,
+                           ja4_l->ttl,
+                           ja4_l->hop_count);
+
+    if (written < 0)
+    {
+        // Handle snprintf failure
+        return;
+    }
+
+    out->len = (size_t)written;
+
+#if (NGX_DEBUG)
+    ngx_ssl_ja4_l_detail_print(pool, ja4_l);
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4_l: fp: [%V]\n", out);
+#endif
+}
 
 void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
 {
@@ -330,7 +496,37 @@ static int compare_ciphers(const void *a, const void *b)
         return 1;
     return 0;
 }
+// this function sets stuff on the ja4_l struct so the fingerprint can easily, and clearly be formed in a separate function
+int ngx_ssl_ja4_l(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l)
+{
 
+    SSL *ssl;
+
+    if (!c->ssl)
+    {
+        return NGX_DECLINED;
+    }
+
+    if (!c->ssl->handshaked)
+    {
+        return NGX_DECLINED;
+    }
+
+    ssl = c->ssl->connection;
+    if (!ssl)
+    {
+        return NGX_DECLINED;
+    }
+    
+
+    // transfer ssl connection variables to the ja4_l struct
+    ja4_l->handshake_roundtrip_microseconds = c->ssl->handshake_roundtrip_microseconds;
+    ja4_l->ttl = c->ssl->ttl;
+
+    return NGX_OK;
+}
+
+// this function sets stuff on the ja4 struct so the fingerprint can easily, and clearly be formed in a separate function
 int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
 {
 

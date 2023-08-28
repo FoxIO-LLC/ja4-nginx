@@ -138,7 +138,9 @@ struct ngx_ssl_connection_s {
     size_t          extensions_sz;
     unsigned short *extensions;
 
-
+    // ja4l stuff
+    uint16_t handshake_roundtrip_microseconds; // a whole number - max is probably thousands
+    uint8_t ttl;                // time to live - a whole number - max is 255
 };
 
 

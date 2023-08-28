@@ -1916,6 +1916,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
     // calculate ja4 stuff
     ngx_SSL_client_features(c);
 
+    c->ssl->handshake_roundtrip_microseconds = elapsed_time;
+    c->ssl->ttl = 1;
+
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
 
     if (n == 1) {
