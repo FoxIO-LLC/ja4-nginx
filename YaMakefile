@@ -7,8 +7,8 @@ create-patch:
 	git diff master darksail-mod src/ > darksail_mod.patch
 # this copies the module and patch to the sister repo ../darksail_web
 copy-utils:
-	cp -r module ../darksail_web/nginx
-	cp darksail_mod.patch ../darksail_web/nginx/darksail_mod.patch
+	cp -r module ../darksail-web/nginx
+	cp darksail_mod.patch ../darksail-web/nginx/darksail_mod.patch
 
 gen-certs:
 	# openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx_local/conf/server.key -out nginx_local/conf/server.crt
