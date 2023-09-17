@@ -1908,6 +1908,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
         if (n == 1) {
             break;  // Handshake was successful, break out of the loop
         } else {
+            // restart timer
+            gettimeofday(&tv_start, NULL);  // Get the start time
             int err = SSL_get_error(c->ssl->connection, n);
             if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
                 // Handle error here
