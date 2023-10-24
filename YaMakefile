@@ -11,11 +11,10 @@ copy-utils:
 	cp darksail_mod.patch ../darksail-web/nginx/darksail_mod.patch
 
 gen-certs:
-	# openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx_local/conf/server.key -out nginx_local/conf/server.crt
-	openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx_local/conf/server.key -out nginx_local/conf/server.crt -subj "/C=US/ST=State/L=City/O=Organization/OU=Department/CN=localhost"
+	openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx_utils/conf/server.key -out nginx_utils/conf/server.crt -subj "/C=US/ST=State/L=City/O=Organization/OU=Department/CN=localhost"
 
 convert-crt-to-pem:
-	openssl x509 -in nginx_local/conf/server.crt -out nginx_local/conf/server.pem -outform PEM
+	openssl x509 -in nginx_utils/conf/server.crt -out nginx_utils/conf/server.pem -outform PEM
 
 connect-with-openssl-client:
 	openssl s_client -connect localhost:443
