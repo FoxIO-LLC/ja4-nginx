@@ -46,9 +46,11 @@ typedef struct ngx_ssl_ja4_l_s
 int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4);
 int ngx_ssl_ja4_l(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l);
 void ngx_ssl_ja4_fp(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out);
+void ngx_ssl_ja4_fp_string(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out);
 void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out);
 static ngx_int_t ngx_http_ssl_ja4_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_ssl_ja4(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_ssl_ja4_string(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_ssl_ja4_l(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 
 /* http_json_log config preparation */
@@ -108,6 +110,35 @@ ngx_http_ssl_ja4(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+static ngx_int_t
+ngx_http_ssl_ja4_string(ngx_http_request_t *r,
+                        ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ngx_ssl_ja4_t ja4;
+    ngx_str_t fp = ngx_null_string;
+
+    if (r->connection == NULL)
+    {
+        return NGX_OK;
+    }
+
+    if (ngx_ssl_ja4(r->connection, r->pool, &ja4) == NGX_DECLINED)
+    {
+        return NGX_ERROR;
+    }
+
+    // ngx_ssl_ja4_fp(r->pool, &ja4, &fp);
+    // replace w/ function that assigns the string instead of the hashed version
+    ngx_ssl_ja4_fp_string(r->pool, &ja4, &fp);
+
+    v->data = fp.data;
+    v->len = fp.len;
+    v->valid = 1;
+    v->no_cacheable = 1;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
 
 // I think this function sets the http variable value
 static ngx_int_t
@@ -148,13 +179,13 @@ static ngx_http_variable_t ngx_http_ssl_ja4_variables_list[] = {
      NULL,
      ngx_http_ssl_ja4,
      0, 0, 0},
+    {ngx_string("http_ssl_ja4_string"),
+     NULL,
+     ngx_http_ssl_ja4_string,
+     0, 0, 0},
     {ngx_string("http_ssl_ja4_l"),
      NULL,
      ngx_http_ssl_ja4_l,
-     0, 0, 0},
-    {ngx_string("http_ssl_ja4_h"),
-     NULL,
-     ngx_http_ssl_ja4,
      0, 0, 0},
 };
 
@@ -352,7 +383,7 @@ void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out)
         return;
     }
 
-    // All routes on the Internet have less than 64 hops. 
+    // All routes on the Internet have less than 64 hops.
     // Therefore if the TTL value is within 65-128, the estimated initial TTL is 128.
     // If the TTL value is 0-64, the estimated initial TTL is 64.
     // And if the TTL is >128 then the estimated initial TTL is 255.
@@ -396,7 +427,6 @@ void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out)
         propagation_delay_factor = 2.0;
     }
 
-    
     // This is effectively
     // time message takes to get from client to server * miles light travels per microsecond adjusted with propagation delay factor
     ja4_l->distance_miles = (ja4_l->handshake_roundtrip_microseconds / 2) * 0.13 / propagation_delay_factor;
@@ -418,6 +448,123 @@ void ngx_ssl_ja4_l_fp(ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l, ngx_str_t *out)
 #if (NGX_DEBUG)
     ngx_ssl_ja4_l_detail_print(pool, ja4_l);
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4_l: fp: [%V]\n", out);
+#endif
+}
+
+// this function calculates the ja4 fingerprint but it doesn't has extensions and ciphers
+// instead, it just comma separates them
+void ngx_ssl_ja4_fp_string(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
+{
+    // Estimate memory requirements for output
+    size_t len = 1                        // for q/t
+                 + 2                      // TLS version
+                 + 1                      // d/i for SNI
+                 + ja4->ciphers_sz + 1    // ciphers and commas
+                 + ja4->extensions_sz + 1 // extensions and commas
+                 + 2                      // first and last characters of ALPN
+                 + 4;                     // separators
+
+    out->data = ngx_pnalloc(pool, len);
+    if (out->data == NULL)
+    {
+        out->len = 0;
+        return;
+    }
+
+    size_t cur = 0;
+
+    // t for TCP
+    out->data[cur++] = 't';
+
+    // 2 character TLS version
+    memcpy(out->data + cur, ja4->version, 2);
+    cur += 2;
+
+    // SNI = d, no SNI = i
+    out->data[cur++] = ja4->has_sni;
+
+    // 2 character count of ciphers
+    ngx_snprintf(out->data + cur, 3, "%02zu", ja4->ciphers_sz);
+    cur += 2;
+    // 2 character count of extensions
+    ngx_snprintf(out->data + cur, 3, "%02zu", ja4->extensions_sz);
+    cur += 2;
+
+    out->data[cur++] = ja4->alpn_first_value;
+    out->data[cur++] = ja4->alpn_last_value;
+
+    // Separator
+    out->data[cur++] = '_';
+
+    // Ciphers
+    // if (ja4->ciphers_sz > 0)
+    // {
+    //     memcpy(out->data + cur, ja4->ciphers, ja4->ciphers_sz);
+    //     cur += ja4->ciphers_sz;
+    // }
+
+    // add ciphers
+    size_t i;
+    for (i = 0; i < ja4->ciphers_sz; ++i)
+    {
+        // ngx_log_debug2(NGX_LOG_DEBUG_EVENT,
+        //                pool->log, 0, "ssl_ja4: |    strextension: 0x%04uxD -> %d",
+        //                ja4->extensions[i],
+        //                ja4->extensions[i]);
+
+        // convert the cipher hex to a string
+        // cipher = cipher[i]
+        // convert cipher to string
+        // add cipher to out->data
+        // add comma to out->data
+
+        // memcpy(out->data + cur, ja4->ciphers[i], 2);
+        // int cipher_value = 34; // Example cipher value with two digits
+        int n = ngx_snprintf(out->data + cur, 6, "%05d,", ja4->ciphers[i]) - out->data - cur;
+        cur += n;
+    }
+
+    if (ja4->ciphers_sz > 0)
+    {
+        cur--; // Remove the trailing comma
+    }
+
+    // Separator
+    out->data[cur++] = '_';
+    // out->data[cur++] = '_';
+
+    // ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4: before extensions: fp_string: [%V]\n", out);
+
+    // add extensions
+    size_t j;
+    for (j = 0; j < ja4->extensions_sz; ++j)
+    {
+        // ngx_log_debug2(NGX_LOG_DEBUG_EVENT,
+        //                pool->log, 0, "ssl_ja4: |    strextension: 0x%04uxD -> %d",
+        //                ja4->extensions[i],
+        //                ja4->extensions[i]);
+
+        // convert the extension hex to a string
+        // extension = extension[i]
+        // convert extension to string
+        // add extension to out->data
+        // add comma to out->data
+
+        // memcpy(out->data + cur, ja4->extensions[i], 2);
+        // int extension_value = 34; // Example extension value with two digits
+        int n = ngx_snprintf(out->data + cur, 6, "%05d,", ja4->extensions[j]) - out->data - cur;
+        cur += n;
+    }
+
+    if (ja4->extensions_sz > 0)
+    {
+        cur--; // Remove the trailing comma
+    }
+
+    out->len = cur;
+
+#if (NGX_DEBUG)
+    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4: fp_string: [%V]\n", out);
 #endif
 }
 
@@ -517,7 +664,6 @@ int ngx_ssl_ja4_l(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_l_t *ja4_l)
     {
         return NGX_DECLINED;
     }
-    
 
     // transfer ssl connection variables to the ja4_l struct
     ja4_l->handshake_roundtrip_microseconds = c->ssl->handshake_roundtrip_microseconds;
