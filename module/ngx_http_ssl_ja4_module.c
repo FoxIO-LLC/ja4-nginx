@@ -461,7 +461,6 @@ void ngx_ssl_ja4_fp_string(ngx_pool_t *pool, ngx_ssl_ja4_t *ja4, ngx_str_t *out)
                  + 1                      // d/i for SNI
                  + 2                      // count of ciphers
                  + 2                      // count of extensions
-
                  + ja4->ciphers_sz * 6    // ciphers and commas
                  + ja4->extensions_sz * 6  // extensions and commas
                  + 2                      // first and last characters of ALPN
@@ -767,6 +766,9 @@ int ngx_ssl_ja4(ngx_connection_t *c, ngx_pool_t *pool, ngx_ssl_ja4_t *ja4)
         ja4->version = "XX"; // Represents an unknown version
         break;
     }
+
+    // get sig
+    // add to ja4 obj
 
     /* Cipher suites */
     ja4->ciphers = NULL;

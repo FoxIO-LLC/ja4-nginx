@@ -1,7 +1,7 @@
 start:
 	sudo ./nginx_local/sbin/nginx -g "daemon off;"
 build:
-	./auto/configure --with-debug --with-compat --add-module=./module --with-http_ssl_module --prefix=$(pwd)/nginx_local
+	./auto/configure --with-debug --with-compat --add-module=./module --with-http_v3_module --with-http_ssl_module --prefix=$(pwd)/nginx_local
 # don't forget to create the patch first!
 create-patch:
 	git diff master darksail-mod src/ > darksail_mod.patch
