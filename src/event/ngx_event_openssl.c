@@ -1792,7 +1792,7 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
     return NGX_OK;
 }
 
-// TODO: adds ja4 stuff to the ssl object to be calculated later
+// adds ciphers to the ssl object for ja4 fingerprint
 void
 ngx_SSL_client_features(ngx_connection_t *c) {
 
@@ -1816,7 +1816,7 @@ ngx_SSL_client_features(ngx_connection_t *c) {
         ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
     }
 }
-// TODO: this is the extensions part need to check this ja4 extension hack
+// adds extensions to the ssl object for ja4 fingerprint
 int
 ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
 
