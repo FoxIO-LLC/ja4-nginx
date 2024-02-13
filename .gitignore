@@ -1,3 +1,5 @@
 objs
 nginx_local
 Makefile
+*.crt
+*.key

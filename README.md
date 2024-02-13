@@ -1,50 +1,46 @@
-# Darksail Nginx
+# JA4 Nginx
 
-This is a custom patched version of Nginx that adds runtime variables: `http_ssl_ja4`, `http_ssl_ja4_l` additionally string versions of ja4 `http_ssl_ja4_string`.
+This fork of Nginx adds a small modification to the core of nginx to use in conjunction with the [JA4 module](https://github.com/FoxIO-LLC/ja4-plus-nginx). That means, to use the JA4 module, you'll need to use this fork of Nginx when compiling.
 
-## JA4
+## Developer Guide
 
-JA4 is calculated according to the following attributes: TODO
+For those working on the JA4 Nginx module, this guide will help you get started.
 
-## Configure with QUIC
+### Integrating the JA4 Module
 
-The configuration parameter --with-http_v3_module will enable QUIC. However, since we still rely on OpenSSL, we are vulnerable to replay attacks.
+To work with the JA4 module with this fork of Nginx, start by cloning the JA4 module into the root of this project.
 
-## Run QUIC with Docker
+`git clone git@github.com:FoxIO-LLC/ja4-nginx-module.git`
 
-Simply run `docker-compose up` in the root directory of this repository.
+Now, the module code will be available when building nginx.
 
-## Running and Compiling
+### Build
 
-First, the project must be set up with settings you desire.
+The following commands can be used to build the project (sudo may be required):
 
-`./auto/configure --with-debug --with-compat --add-module=./module --with-http_ssl_module --prefix=$(pwd)/nginx_local`
+`./auto/configure --with-debug --with-compat --add-module=./ja4-nginx-module/src --with-http_ssl_module --prefix=$(pwd)/nginx_local`
 
-Then, the project can be compiled with `make` and installed with `make install`.
+`make`
 
-### Server Configuration
+When you make changes to the code and want to rebuild, only the following command is required:
 
-In `nginx_utils`, drop the site.conf file into `nginx_local/`
+`make install`
 
-Then, you can start the server with `sudo ./nginx_local/sbin/nginx -g "daemon off;"`.
+### Run Server
 
-## Debugging
+Nginx servers can be optionally configured with a custom nginx.conf file. This instructs the server how to responds to requests across different ports and controls other global settings. In `./nginx_utils`, there is a sample nginx.conf which returns the necessary JA4 fingerprint variables in a text response. Additionally, you will need there are `server.crt` and `server.key` files which are necessary for SSL connections and thus necessary for generating JA4 fingerprints. There is a handy command in the YaMakefile to generate locally signed versions of these files.
 
-We have a few debugging print commands in our module like:
+After building the software, copy `./nginx_utils/nginx.conf` and your `server.crt` and `server.key` files to `./nginx_local/conf` and then run the server with the following command:
+
+`sudo ./nginx_local/sbin/nginx -g "daemon off;"`
+
+### Logging/Debugging
+
+You can log data to `nginx_local/logs/error.log` like this:
 
 `ngx_log_debug2(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4: |    cipher: 0x%04uxD -> %d", ja4->ciphers[i], ja4->ciphers[i]);`
 
-This produces logged output in `nginx_local/logs/error.log`
+### Creating a Patch
 
-## Shipping
+Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, I prefer to clone nginx in a directory alongside this project. Then, I use the following command to create the patch:
 
-Most importantly, this repository expects the project darksail-web to sit beside it. The `copy-utils` command in the YaMakefile assumes this.
-
-1. Make sure you have your changes inside branch `darksail-mod` and that is the checked out branch
-2. `make -f YaMakefile create-patch`
-3. `make -f YaMakefile copy-utils`
-4. Go to darksail-web repo and commit the changes,
-
-## lo
-
-[JA3 Fullstring: 771,10794-4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,19018-13-45-65281-18-51-35-23-10-43-16-5-17513-27-65037-11-47802-41,43690-29-23-24,0]
