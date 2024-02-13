@@ -1894,7 +1894,7 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     ngx_ssl_clear_error(c->log);
     
-    // client hello callback function on the session context
+    // client hello callback function on the session context, ja4 extensions
     SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);   
 
     // init time structs in a perfectly reasonable location
@@ -1903,42 +1903,9 @@ ngx_ssl_handshake(ngx_connection_t *c)
     gettimeofday(&tv_start, NULL);  // Get the start time
 
     
-    do {
-        n = SSL_do_handshake(c->ssl->connection);
-        if (n == 1) {
-            break;  // Handshake was successful, break out of the loop
-        } else {
-            // restart timer
-            gettimeofday(&tv_start, NULL);  // Get the start time
-            int err = SSL_get_error(c->ssl->connection, n);
-            if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_WANT_WRITE) {
-                // Handle error here
-                break;
-            }
-            // Otherwise, wait until the socket is ready (using select, poll, etc.)
-        }
-    } while (1);
+    n = SSL_do_handshake(c->ssl->connection);
 
-    gettimeofday(&tv_end, NULL);  // Get the end time
-
-    // Compute the elapsed time in microseconds
-    long elapsed_time = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L;  // convert seconds to microseconds
-    elapsed_time += (tv_end.tv_usec - tv_start.tv_usec);  // add the microsecond component
-    
-    
-
-    // log start time
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 start time: %ld.%06ld", tv_start.tv_sec, tv_start.tv_usec);
-    // log end time
-    ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 end time: %ld.%06ld", tv_end.tv_sec, tv_end.tv_usec);
-    // Log the elapsed time
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake1 time: %ld", elapsed_time);
-
-    c->ssl->handshake_roundtrip_microseconds = elapsed_time;
-    c->ssl->ttl = 1;
-    ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake block statement: %d", n);
-
-    // calculate ja4 stuff
+    // ja4 cipher suites
     ngx_SSL_client_features(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
