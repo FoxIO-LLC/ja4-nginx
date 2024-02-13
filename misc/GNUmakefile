@@ -6,8 +6,8 @@ TEMP =		tmp
 
 CC =		cl
 OBJS =		objs.msvc8
-OPENSSL =	openssl-1.1.1t
-ZLIB =		zlib-1.2.13
+OPENSSL =	openssl-3.0.11
+ZLIB =		zlib-1.3
 PCRE =		pcre2-10.39
 
 
@@ -105,7 +105,7 @@ zip: export
 	$(MAKE) -f docs/GNUmakefile changes
 	mv $(TEMP)/$(NGINX)/CHANGES* $(TEMP)/$(NGINX)/docs/
 
-	cp -p $(OBJS)/lib/$(OPENSSL)/LICENSE				\
+	cp -p $(OBJS)/lib/$(OPENSSL)/LICENSE.txt			\
 		$(TEMP)/$(NGINX)/docs/OpenSSL.LICENSE
 
 	cp -p $(OBJS)/lib/$(PCRE)/LICENCE				\
