@@ -3,3 +3,4 @@ nginx_local
 Makefile
 *.crt
 *.key
+ja4-nginx-module
