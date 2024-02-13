@@ -1896,12 +1896,6 @@ ngx_ssl_handshake(ngx_connection_t *c)
     
     // client hello callback function on the session context, ja4 extensions
     SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);   
-
-    // init time structs in a perfectly reasonable location
-    struct timeval tv_start, tv_end;
-    // get current time (before shakin')
-    gettimeofday(&tv_start, NULL);  // Get the start time
-
     
     n = SSL_do_handshake(c->ssl->connection);
 
