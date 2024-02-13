@@ -2,13 +2,6 @@ start:
 	sudo ./nginx_local/sbin/nginx -g "daemon off;"
 build:
 	./auto/configure --with-debug --with-compat --add-module=./module --with-http_v3_module --with-http_ssl_module --prefix=$(pwd)/nginx_local
-# don't forget to create the patch first!
-create-patch:
-	git diff master darksail-mod src/ > darksail_mod.patch
-# this copies the module and patch to the sister repo ../darksail_web
-copy-utils:
-	cp -r module ../darksail-web/nginx
-	cp darksail_mod.patch ../darksail-web/nginx/darksail_mod.patch
 
 gen-certs:
 	openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout nginx_utils/conf/server.key -out nginx_utils/conf/server.crt -subj "/C=US/ST=State/L=City/O=Organization/OU=Department/CN=localhost"

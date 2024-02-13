@@ -42,5 +42,17 @@ You can log data to `nginx_local/logs/error.log` like this:
 
 ### Creating a Patch
 
-Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, I prefer to clone nginx in a directory alongside this project. Then, I use the following command to create the patch:
+Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, clone nginx in a directory alongside this project. Then, use the following command to create the patch:
 
+`git diff --no-index ../nginx/src ./src > nginx.patch`
+
+### Parity with Nginx
+
+When updates come into Nginx, we need to update our fork. We can simply do these by adding nginx as a remote upstream repository:
+
+`git remote add upstream git@github.com:nginx/nginx.git`
+
+Then, merging updates with our main branch:
+
+`git checkout main`
+`git merge upstream/master`
