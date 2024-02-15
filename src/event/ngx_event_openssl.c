@@ -1809,6 +1809,7 @@ ngx_SSL_client_features(ngx_connection_t *c) {
     /* Cipher suites */
     c->ssl->ciphers = NULL;
     c->ssl->ciphers_sz = SSL_get0_raw_cipherlist(s, &ciphers_out);
+    // each cipher suite is 2 bytes
     c->ssl->ciphers_sz /= 2;
 
     if (c->ssl->ciphers_sz && ciphers_out) {
@@ -1816,6 +1817,42 @@ ngx_SSL_client_features(ngx_connection_t *c) {
         c->ssl->ciphers = ngx_pnalloc(c->pool, len);
         ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
     }
+
+    /* Signature Algorithms */
+    int num_sigalgs = SSL_get_sigalgs(s, -1, NULL, NULL, NULL, NULL, NULL);
+    if (num_sigalgs > 0) {
+        // Allocate memory for pointers to strings (each will hold a hex string)
+        char **sigalgs_hex_strings = ngx_pnalloc(c->pool, num_sigalgs * sizeof(char *));
+        if (sigalgs_hex_strings == NULL) {
+            ngx_log_error(NGX_LOG_ERR, c->log, 0, "Failed to allocate memory for signature algorithm hex strings");
+            return;
+        }
+
+        for (int i = 0; i < num_sigalgs; ++i) {
+            int psign, phash, psignhash;
+            unsigned char rsig, rhash;
+            SSL_get_shared_sigalgs(s, i, &psign, &phash, &psignhash, &rsig, &rhash);
+
+            // Format as a hexadecimal string
+            char hex_string[5]; // Enough for "XXXX" + null terminator
+            snprintf(hex_string, sizeof(hex_string), "%02x%02x", rhash, rsig);
+
+            // Allocate memory for the hex string
+            sigalgs_hex_strings[i] = ngx_pnalloc(c->pool, sizeof(hex_string));
+            if (sigalgs_hex_strings[i] == NULL) {
+                ngx_log_error(NGX_LOG_ERR, c->log, 0, "Failed to allocate memory for a signature algorithm hex string");
+                continue; // or handle more gracefully
+            }
+
+            // Copy the hex string into allocated memory
+            ngx_memcpy(sigalgs_hex_strings[i], hex_string, sizeof(hex_string));
+        }
+
+        // Save the array of hex strings to your struct
+        c->ssl->sigalgs_hash_values = sigalgs_hex_strings;
+        c->ssl->sigalgs_sz = num_sigalgs;
+    }
+    c->ssl->sigalgs_sz = num_sigalgs; 
 }
 // adds extensions to the ssl object for ja4 fingerprint
 int

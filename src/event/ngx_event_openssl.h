@@ -129,7 +129,7 @@ struct ngx_ssl_connection_s {
     unsigned                    early_preread:1;
     unsigned                    write_blocked:1;
 
-    // ja4 stuff
+    // ja4
     int             version;
 
     size_t          ciphers_sz;
@@ -138,7 +138,10 @@ struct ngx_ssl_connection_s {
     size_t          extensions_sz;
     unsigned short *extensions;
 
-    // ja4l stuff
+    size_t          sigalgs_sz;
+    char   **sigalgs_hash_values; // Array to store combined hash values like 0x0601
+
+    // ja4l
     uint16_t handshake_roundtrip_microseconds; // a whole number - max is probably thousands
     uint8_t ttl;                // time to live - a whole number - max is 255
 };
