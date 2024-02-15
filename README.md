@@ -54,7 +54,6 @@ When updates come into Nginx, we need to update our fork. We can simply do these
 
 Then, merging updates with our main branch:
 
-`git checkout upstream/master`
-`git pull upstream/master`
+`git pull upstream master`
 `git checkout main`
 `git merge upstream/master`
