@@ -26,6 +26,12 @@ When you make changes to the code and want to rebuild, only the following comman
 
 `make install`
 
+#### Build with OpenSSL Fork
+
+If you are using the OpenSSL fork, you will need to build with the following command:
+
+`./auto/configure --with-debug --with-compat --add-module=./ja4-nginx-module/src --with-http_ssl_module --with-openssl=$(pwd)/ja4-openssl --prefix=$(pwd)/nginx_local`
+
 ### Run Server
 
 Nginx servers can be optionally configured with a custom nginx.conf file. This instructs the server how to responds to requests across different ports and controls other global settings. In `./nginx_utils`, there is a sample nginx.conf which returns the necessary JA4 fingerprint variables in a text response. Additionally, you will need there are `server.crt` and `server.key` files which are necessary for SSL connections and thus necessary for generating JA4 fingerprints. There is a handy command in the YaMakefile to generate locally signed versions of these files.

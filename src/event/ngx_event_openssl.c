@@ -1875,7 +1875,7 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
 
     c->ssl->extensions_sz = 0;
     c->ssl->extensions = NULL;
-    got_extensions = SSL_client_hello_get1_extensions_present(s,
+    got_extensions = SSL_client_hello_getall_extensions_present(s,
                                                        &ext_out,
                                                        &ext_len);
 
@@ -1883,7 +1883,6 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
     for (size_t i = 0; i < ext_len; i++) {
         ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "ext_out[%z] = %d", i, ext_out[i]);
     }
-
     if (!got_extensions) {
         return 1;
     }
