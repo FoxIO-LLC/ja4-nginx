@@ -62,7 +62,7 @@ Then, merging updates with our main branch:
 
 Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, make sure you have retrieved most recent nginx as specified in section: [Parity with Nginx](#parity-with-nginx). Then:
 
-`git diff upstream/master:src ./src/ > ja4-nginx-module/patches/nginx.patch`
+`(git diff upstream/master:src/event/ngx_event_openssl.c ./src/event/ngx_event_openssl.c && git diff upstream/master:src/event/ngx_event_openssl.h ./src/event/ngx_event_openssl.h && git diff upstream/master:src/http/modules/ngx_http_ssl_module.c ./src/http/modules/ngx_http_ssl_module.c)> ja4-nginx-module/patches/nginx.patch`
 
 ### Parity with OpenSSL
 
@@ -70,7 +70,7 @@ The JA4 nginx module also requires a patch to the underlying OpenSSL library whi
 
 We need to maintain an updated fork of OpenSSL. We can simply do these by adding OpenSSL as a remote upstream repository:
 
-`ja4-openssl` should be cloned within this directory.
+`ja4-openssl` should be cloned within this repository.
 
 Then, add the official OpenSSL repository as a remote upstream repository:
 
