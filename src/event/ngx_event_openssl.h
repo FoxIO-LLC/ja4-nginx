@@ -140,6 +140,8 @@ struct ngx_ssl_connection_s {
 
     size_t          sigalgs_sz;
     char   **sigalgs_hash_values; // Array to store combined hash values like 0x0601
+    char *first_alpn; // first ALPN protocol provided by the client
+
 
     // ja4l
     uint16_t handshake_roundtrip_microseconds; // a whole number - max is probably thousands
