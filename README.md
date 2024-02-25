@@ -60,8 +60,6 @@ Then, merging updates with our main branch:
 
 ### Creating a Patch
 
-Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, clone nginx in a directory alongside this project. Then, use the following command to create the patch:
+Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, make sure you have retrieved most recent nginx as specified in section: [Parity with Nginx](#parity-with-nginx). Then:
 
-`git checkout -b nginx-base upstream/master`
-`git checkout main`
-`git diff nginx-base > patches/nginx-ja4.patch`
+`git diff upstream/master:src ./src/ > ja4-nginx-module/patches/nginx.patch`
