@@ -46,12 +46,6 @@ You can log data to `nginx_local/logs/error.log` like this:
 
 `ngx_log_debug2(NGX_LOG_DEBUG_EVENT, pool->log, 0, "ssl_ja4: |    cipher: 0x%04uxD -> %d", ja4->ciphers[i], ja4->ciphers[i]);`
 
-### Creating a Patch
-
-Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, clone nginx in a directory alongside this project. Then, use the following command to create the patch:
-
-`git diff --no-index ../nginx/src ./src > ja4-nginx-module/patches/nginx.patch`
-
 ### Parity with Nginx
 
 When updates come into Nginx, we need to update our fork. We can simply do these by adding nginx as a remote upstream repository:
@@ -63,3 +57,11 @@ Then, merging updates with our main branch:
 `git pull upstream master`
 `git checkout main`
 `git merge upstream/master`
+
+### Creating a Patch
+
+Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, clone nginx in a directory alongside this project. Then, use the following command to create the patch:
+
+`git checkout -b nginx-base upstream/master`
+`git checkout main`
+`git diff nginx-base > patches/nginx-ja4.patch`
