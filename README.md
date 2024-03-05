@@ -14,23 +14,25 @@ To work with the JA4 module with this fork of Nginx, start by cloning the JA4 mo
 
 Now, the module code will be available when building nginx.
 
-### Build
+### Integrating the OpenSSL Fork
 
-The following commands can be used to build the project (sudo may be required):
+The Nginx patch required by the JA4 module requires an OpenSSL patch.
+Clone it into the root of this project:
 
-`./auto/configure --with-debug --with-compat --add-module=./ja4-nginx-module/src --with-http_ssl_module --prefix=$(pwd)/nginx_local`
-
-`make`
-
-When you make changes to the code and want to rebuild, only the following command is required:
-
-`make install`
+`git clone git@github.com:FoxIO-LLC/ja4-openssl.git`
 
 #### Build with OpenSSL Fork
 
 If you are using the OpenSSL fork, you will need to build with the following command:
 
 `./auto/configure --with-debug --with-compat --add-module=./ja4-nginx-module/src --with-http_ssl_module --with-openssl=$(pwd)/ja4-openssl --prefix=$(pwd)/nginx_local`
+
+`make`
+
+`make install`
+
+NOTE:
+When you make changes to the nginx code or the module code, you only need to run `make install` to rebuild the project.
 
 ### Run Server
 
