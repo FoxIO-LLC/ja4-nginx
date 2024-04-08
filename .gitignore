@@ -5,3 +5,4 @@ Makefile
 *.key
 ja4-nginx-module
 ja4-openssl
+test
