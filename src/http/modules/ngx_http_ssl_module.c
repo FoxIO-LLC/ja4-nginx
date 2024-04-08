@@ -431,6 +431,13 @@ ngx_http_ssl_alpn_select(ngx_ssl_conn_t *ssl_conn, const unsigned char **out,
     ngx_connection_t       *c;
 
     c = ngx_ssl_get_connection(ssl_conn);
+    // add first alpn value for ja4 to c->ssl
+    if (c->ssl->first_alpn == NULL) {
+        c->ssl->first_alpn = ngx_palloc(c->pool, in[0] + 1);
+        // number of bytes for alpn is stored in in[0]
+        ngx_memcpy(c->ssl->first_alpn, &in[1], in[0]);
+        c->ssl->first_alpn[in[0]] = '\0';
+    }
 #endif
 
 #if (NGX_DEBUG)
