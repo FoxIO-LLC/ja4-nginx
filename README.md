@@ -36,7 +36,7 @@ When you make changes to the nginx code or the module code, you only need to run
 
 ### Run Server
 
-Nginx servers can be optionally configured with a custom nginx.conf file. This instructs the server how to responds to requests across different ports and controls other global settings. In `./nginx_utils`, there is a sample nginx.conf which returns the necessary JA4 fingerprint variables in a text response. Additionally, you will need there are `server.crt` and `server.key` files which are necessary for SSL connections and thus necessary for generating JA4 fingerprints. There is a handy command in the YaMakefile to generate locally signed versions of these files.
+Nginx servers can be optionally configured with a custom nginx.conf file. This instructs the server how to respond to requests across different ports and controls other global settings, like logging configurations. In `./nginx_utils`, there is a sample nginx.conf which returns the JA4 fingerprint variables in a text response. Additionally, you will need there are `server.crt` and `server.key` files which are necessary for SSL connections and thus necessary for generating JA4 fingerprints. There is a handy command in the YaMakefile to generate locally signed versions of these files.
 
 After building the software, copy `./nginx_utils/nginx.conf` and your `server.crt` and `server.key` files to `./nginx_local/conf` and then run the server with the following command:
 
