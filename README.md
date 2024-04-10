@@ -50,6 +50,8 @@ You can log data to `nginx_local/logs/error.log` like this:
 
 ### Parity with Nginx
 
+Since we are building off of a stable branch, these steps shouldn't ever be required.
+
 When updates come into Nginx, we need to update our fork. We can simply do these by adding nginx as a remote upstream repository:
 
 `git remote add upstream git@github.com:nginx/nginx.git`
@@ -68,6 +70,8 @@ Because the JA4 module requires a small change to nginx core, we ship the module
 
 ### Parity with OpenSSL
 
+Since we are building off of a stable branch, these steps shouldn't ever be required.
+
 The JA4 nginx module also requires a patch to the underlying OpenSSL library which must included when compiling Nginx.
 
 We need to maintain an updated fork of OpenSSL. We can simply do these by adding OpenSSL as a remote upstream repository:
@@ -81,15 +85,15 @@ Then, add the official OpenSSL repository as a remote upstream repository:
 
 Then, merging updates with our master branch:
 
-`git pull upstream master`
-`git checkout master`
-`git merge upstream/master`
+`git pull upstream openssl-3.2`
+`git checkout ja4-openssl-3.2`
+`git merge upstream/openssl-3.2`
 
 ### Creating a Patch for OpenSSL
 
 Because the JA4 module requires a small change to OpenSSL, we ship the module via GitHub releases along with a patch file. To create a patch file, make sure you have pulled most recent changes from OpenSSL as specified in section: [Parity with OpenSSL](#parity-with-openssl). Then:
 
-`(git diff upstream/master:ssl/ssl_lib.c ./ssl/ssl_lib.c && git diff upstream/master:include/openssl/ssl.h.in ./include/openssl/ssl.h.in) > ../ja4-nginx-module/patches/openssl.patch`
+`(git diff upstream/openssl-3.2:ssl/ssl_lib.c ./ssl/ssl_lib.c && git diff upstream/openssl-3.2:include/openssl/ssl.h.in ./include/openssl/ssl.h.in) > ../ja4-nginx-module/patches/openssl.patch`
 
 ## Architecture
 
