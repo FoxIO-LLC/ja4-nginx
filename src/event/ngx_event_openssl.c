@@ -1816,9 +1816,8 @@ ngx_SSL_client_features(ngx_connection_t *c) {
 
         // Save the array of hex strings to your struct
         c->ssl->sigalgs_hash_values = sigalgs_hex_strings;
-        c->ssl->sigalgs_sz = num_sigalgs;
     }
-    c->ssl->sigalgs_sz = num_sigalgs; 
+    c->ssl->sigalgs_sz = num_sigalgs;
 }
 // adds extensions to the ssl object for ja4 fingerprint
 int
@@ -1895,6 +1894,8 @@ ngx_ssl_handshake(ngx_connection_t *c)
     }
 
     ngx_ssl_clear_error(c->log);
+
+    printf("NGX_SSL_HANDSHAKE\n");
 
     // client hello callback function on the session context, ja4 extensions
     SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);
