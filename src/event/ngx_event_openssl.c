@@ -1895,8 +1895,6 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     ngx_ssl_clear_error(c->log);
 
-    printf("NGX_SSL_HANDSHAKE\n");
-
     // client hello callback function on the session context, ja4 extensions
     SSL_CTX_set_client_hello_cb(c->ssl->session_ctx, ngx_SSL_early_cb_fn, c);
 
