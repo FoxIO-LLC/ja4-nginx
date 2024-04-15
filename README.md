@@ -66,7 +66,7 @@ Then, merging updates with our main branch:
 
 Because the JA4 module requires a small change to nginx core, we ship the module via GitHub releases along with a patch file. To create a patch file, make sure you have retrieved most recent nginx as specified in section: [Parity with Nginx](#parity-with-nginx). Then:
 
-`(git diff upstream/branches/stable-1.24:src/event/ngx_event_openssl.c ./src/event/ngx_event_openssl.c && git diff upstream/branches/stable-1.24:src/event/ngx_event_openssl.h ./src/event/ngx_event_openssl.h && git diff upstream/branches/stable-1.24:src/http/modules/ngx_http_ssl_module.c ./src/http/modules/ngx_http_ssl_module.c)> ja4-nginx-module/patches/nginx.patch`
+`(git diff upstream/branches/stable-1.24:src/event/ngx_event_openssl.c ./src/event/ngx_event_openssl.c && git diff upstream/branches/stable-1.24:src/event/ngx_event_openssl.h ./src/event/ngx_event_openssl.h && git diff upstream/branches/stable-1.24:src/http/modules/ngx_http_ssl_module.c ./src/http/modules/ngx_http_ssl_module.c) > ja4-nginx-module/patches/nginx.patch`
 
 ### Parity with OpenSSL
 
