@@ -1885,10 +1885,6 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
                                                        &ext_out,
                                                        &ext_len);
 
-    // log extensions
-    for (size_t i = 0; i < ext_len; i++) {
-        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "ext_out[%z] = %d", i, ext_out[i]);
-    }
     if (!got_extensions) {
         return 1;
     }
