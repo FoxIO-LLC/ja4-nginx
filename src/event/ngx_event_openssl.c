@@ -1760,28 +1760,67 @@ ngx_ssl_set_session(ngx_connection_t *c, ngx_ssl_session_t *session)
 
 
 // adds ciphers to the ssl object for ja4 fingerprint
-void
+ngx_int_t
 ngx_SSL_client_features(ngx_connection_t *c) {
 
-    unsigned short                *ciphers_out = NULL;
-    size_t                         len = 0;
     SSL                           *s = NULL;
 
     if (c == NULL) {
-        return;
+        return NGX_ERROR;
     }
     s = c->ssl->connection;
 
     /* Cipher suites */
     c->ssl->ciphers = NULL;
-    c->ssl->ciphers_sz = SSL_get0_raw_cipherlist(s, &ciphers_out);
-    // each cipher suite is 2 bytes
-    c->ssl->ciphers_sz /= 2;
+    STACK_OF(SSL_CIPHER) *ciphers = SSL_get_client_ciphers(s);
 
-    if (c->ssl->ciphers_sz && ciphers_out) {
-        len = c->ssl->ciphers_sz * sizeof(unsigned short);
-        c->ssl->ciphers = ngx_pnalloc(c->pool, len);
-        ngx_memcpy(c->ssl->ciphers, ciphers_out, len);
+    if (ciphers == NULL) {
+        return NGX_ERROR; // Handle error
+    }
+
+    c->ssl->ciphers_sz = sk_SSL_CIPHER_num(ciphers);
+
+    if (c->ssl->ciphers_sz) {
+        // Allocate memory for the array of cipher strings
+        c->ssl->ciphers = ngx_pnalloc(c->pool, c->ssl->ciphers_sz * sizeof(char *));
+        if (c->ssl->ciphers == NULL) {
+            return NGX_ERROR; // Handle allocation failure
+        }
+
+        // Convert each cipher suite to a hexadecimal string and store it
+        for (size_t i = 0; i < c->ssl->ciphers_sz; i++) {
+            const SSL_CIPHER *cipher = sk_SSL_CIPHER_value(ciphers, i);
+            if (cipher == NULL) {
+                return NGX_ERROR; // Handle error
+            }
+
+            // Get the two-byte TLS cipher ID in network byte order
+            unsigned char cipher_id_bytes[2];
+            cipher_id_bytes[0] = (SSL_CIPHER_get_id(cipher) >> 8) & 0xFF;
+            cipher_id_bytes[1] = SSL_CIPHER_get_id(cipher) & 0xFF;
+
+            const SSL_CIPHER *found_cipher = SSL_CIPHER_find(s, cipher_id_bytes);
+            if (found_cipher == NULL) {
+                return NGX_ERROR; // Handle error
+            }
+
+            // Convert the cipher ID to a hexadecimal string
+            char hex_str[6]; // Buffer to hold the hexadecimal string (4 digits + null terminator)
+            snprintf(hex_str, sizeof(hex_str), "%02x%02x", cipher_id_bytes[0], cipher_id_bytes[1]);
+
+            // Allocate memory for the hex string and copy it
+            c->ssl->ciphers[i] = ngx_pnalloc(c->pool, sizeof(hex_str));
+            if (c->ssl->ciphers[i] == NULL) {
+                // Handle allocation failure and clean up previously allocated memory
+                for (size_t j = 0; j < i; j++) {
+                    ngx_pfree(c->pool, c->ssl->ciphers[j]);
+                }
+                ngx_pfree(c->pool, c->ssl->ciphers);
+                c->ssl->ciphers = NULL;
+                return NGX_ERROR;
+            }
+            ngx_memcpy(c->ssl->ciphers[i], hex_str, sizeof(hex_str));
+        }
     }
 
     /* Signature Algorithms */
