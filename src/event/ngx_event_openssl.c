@@ -1954,13 +1954,11 @@ ngx_ssl_handshake(ngx_connection_t *c)
 
     n = SSL_do_handshake(c->ssl->connection);
 
-    // ja4 cipher suites
-    ngx_SSL_client_features(c);
 
     ngx_log_debug1(NGX_LOG_DEBUG_EVENT, c->log, 0, "SSL_do_handshake: %d", n);
-
     if (n == 1) {
-
+        // ja4 cipher suites
+        ngx_SSL_client_features(c);
         if (ngx_handle_read_event(c->read, 0) != NGX_OK) {
             return NGX_ERROR;
         }
