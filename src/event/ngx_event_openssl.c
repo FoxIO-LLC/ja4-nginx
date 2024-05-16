@@ -1824,19 +1824,19 @@ ngx_SSL_client_features(ngx_connection_t *c) {
     }
 
     /* Signature Algorithms */
-    int num_sigalgs = SSL_get_sigalgs(s, -1, NULL, NULL, NULL, NULL, NULL);
+    int num_sigalgs = SSL_get_sigalgs(s, 0, NULL, NULL, NULL, NULL, NULL);
     if (num_sigalgs > 0) {
         // Allocate memory for pointers to strings (each will hold a hex string)
         char **sigalgs_hex_strings = ngx_pnalloc(c->pool, num_sigalgs * sizeof(char *));
         if (sigalgs_hex_strings == NULL) {
             ngx_log_error(NGX_LOG_ERR, c->log, 0, "Failed to allocate memory for signature algorithm hex strings");
-            return;
+            return NGX_ERROR;
         }
 
         for (int i = 0; i < num_sigalgs; ++i) {
             int psign, phash, psignhash;
             unsigned char rsig, rhash;
-            SSL_get_shared_sigalgs(s, i, &psign, &phash, &psignhash, &rsig, &rhash);
+            SSL_get_sigalgs(s, i, &psign, &phash, &psignhash, &rsig, &rhash);
 
             // Format as a hexadecimal string
             char hex_string[5]; // Enough for "XXXX" + null terminator
@@ -1846,7 +1846,7 @@ ngx_SSL_client_features(ngx_connection_t *c) {
             sigalgs_hex_strings[i] = ngx_pnalloc(c->pool, sizeof(hex_string));
             if (sigalgs_hex_strings[i] == NULL) {
                 ngx_log_error(NGX_LOG_ERR, c->log, 0, "Failed to allocate memory for a signature algorithm hex string");
-                continue; // or handle more gracefully
+                return NGX_ERROR;
             }
 
             // Copy the hex string into allocated memory
@@ -1856,7 +1856,9 @@ ngx_SSL_client_features(ngx_connection_t *c) {
         // Save the array of hex strings to your struct
         c->ssl->sigalgs_hash_values = sigalgs_hex_strings;
     }
+    
     c->ssl->sigalgs_sz = num_sigalgs;
+    return NGX_OK;
 }
 // adds extensions to the ssl object for ja4 fingerprint
 int
