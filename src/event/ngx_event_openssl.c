@@ -1899,17 +1899,30 @@ ngx_SSL_early_cb_fn(SSL *s, int *al, void *arg) {
         return 1;
     }
 
-    c->ssl->extensions = ngx_palloc(c->pool, sizeof(unsigned short) * ext_len);
+    c->ssl->extensions = ngx_palloc(c->pool, sizeof(char *) * ext_len);
     if (c->ssl->extensions != NULL) {
         for (size_t i = 0; i < ext_len; i++) {
-            c->ssl->extensions[i] = (unsigned short) ext_out[i];
+            char hex_str[6];  // Buffer to hold the hexadecimal string (4 digits + null terminator)
+            snprintf(hex_str, sizeof(hex_str), "%04x", ext_out[i]);
+            
+            // Allocate memory for the hex string and copy it
+            c->ssl->extensions[i] = ngx_pnalloc(c->pool, sizeof(hex_str));
+            if (c->ssl->extensions[i] == NULL) {
+                // Handle allocation failure and clean up previously allocated memory
+                for (size_t j = 0; j < i; j++) {
+                    ngx_pfree(c->pool, c->ssl->extensions[j]);
+                }
+                ngx_pfree(c->pool, c->ssl->extensions);
+                c->ssl->extensions = NULL;
+                return 1;
+            }
+            ngx_memcpy(c->ssl->extensions[i], hex_str, sizeof(hex_str));
         }
         c->ssl->extensions_sz = ext_len;
     }
 
-    // now log c->ssl->extensions
     for (size_t i = 0; i < ext_len; i++) {
-        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "c->ssl->extensions[%z] = %d", i, c->ssl->extensions[i]);
+        ngx_log_debug2(NGX_LOG_DEBUG_EVENT, c->log, 0, "c->ssl->extensions[%zu] = %s", i, c->ssl->extensions[i]);
     }
 
     OPENSSL_free(ext_out);
