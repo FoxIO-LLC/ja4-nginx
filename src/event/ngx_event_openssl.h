@@ -125,10 +125,10 @@ struct ngx_ssl_connection_s {
     int             version;
 
     size_t          ciphers_sz;
-    unsigned short *ciphers;
+    char **ciphers;
 
     size_t          extensions_sz;
-    unsigned short *extensions;
+    char **extensions;
 
     size_t          sigalgs_sz;
     char   **sigalgs_hash_values; // Array to store combined hash values like 0x0601
